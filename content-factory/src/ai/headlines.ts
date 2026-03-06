@@ -41,7 +41,8 @@ export async function generateHeadlines(
     prompt_tokens: res.usage?.prompt_tokens ?? 0,
     completion_tokens: res.usage?.completion_tokens ?? 0,
     total_tokens: res.usage?.total_tokens,
-    total_cost: u?.total_cost ?? u?.cost,
+    total_cost: u?.cost ?? u?.total_cost,
+    model: config.openrouter.textModel,
   };
 
   return { headlines, usage };

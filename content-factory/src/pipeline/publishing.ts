@@ -6,6 +6,7 @@ import { notify } from '../telegram/notifier';
 import { writePublished, setStatusError } from '../sheets/writer';
 import { withRetry } from '../utils/retry';
 import { logInfo } from '../utils/logger';
+import { markdownToTelegramHtml } from '../utils/markdownToHtml';
 import type { Task } from '../types';
 
 const MAX_TEXT_LENGTH = 4096;
@@ -27,7 +28,8 @@ export async function publishingPipeline(task: Task): Promise<void> {
     throw new Error('Нет текста для публикации');
   }
 
-  const toPublish = text.length > MAX_TEXT_LENGTH ? text.slice(0, MAX_TEXT_LENGTH) : text;
+  const raw = text.length > MAX_TEXT_LENGTH ? text.slice(0, MAX_TEXT_LENGTH) : text;
+  const toPublish = markdownToTelegramHtml(raw);
 
   try {
     const { postUrl } = await withRetry(

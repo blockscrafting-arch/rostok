@@ -2,9 +2,22 @@
  * Чтение листа «Задания»: все строки с данными, фильтрация по статусу.
  */
 import { sheets, spreadsheetId } from './client';
-import type { Task, TaskStatus } from '../types';
+import type { Task, TaskStatus, FrequencyLimit } from '../types';
 
 const SHEET_NAME = 'Задания';
+
+/** Парсит ячейку лимита частотности: "300-500" → { min: 300, max: 500 }, "300" → 300. */
+function parseFrequencyLimit(v: unknown): FrequencyLimit {
+  const s = String(v ?? '').trim();
+  const range = s.match(/^\s*(\d+)\s*-\s*(\d+)\s*$/);
+  if (range) {
+    const min = parseInt(range[1], 10);
+    const max = parseInt(range[2], 10);
+    return min <= max ? { min, max } : { min: max, max: min };
+  }
+  const n = Number(s);
+  return Number.isNaN(n) || n < 0 ? 300 : n;
+}
 
 /** Индексы колонок (0-based). Порядок по ТЗ. */
 const COL = {
@@ -54,7 +67,7 @@ function parseRow(row: unknown[], sheetRowIndex: number): Task | null {
     rowIndex: sheetRowIndex,
     platform: String(row[COL.platform] ?? '').trim(),
     keyword,
-    frequencyLimit: num(row[COL.frequencyLimit]) || 300,
+    frequencyLimit: parseFrequencyLimit(row[COL.frequencyLimit]),
     headline: String(row[COL.headline] ?? '').trim() || null,
     keywords: String(row[COL.keywords] ?? '').trim() || null,
     status: (status && VALID_STATUSES.includes(status) ? status : 'Новое') as TaskStatus,

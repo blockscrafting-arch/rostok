@@ -1,20 +1,29 @@
 /**
  * Сбор НЧ-запросов через API Вордстата (api.wordstat.yandex.net).
  * Один запрос /v1/topRequests — без поллинга и отчётов Директа.
+ * Лимит частотности: число = минимум (>=), "min-max" = диапазон (>= min и <= max).
  */
 import { config } from '../config';
 import { topRequests } from './client';
 import type { WordstatKeywordItem } from './types';
+import type { FrequencyLimit } from '../types';
 import { logWarn } from '../utils/logger';
 
-const DEFAULT_NUM_PHRASES = 150;
+/** Запрашивать больше фраз, чтобы после фильтра по диапазону осталось достаточно. */
+const DEFAULT_NUM_PHRASES = 500;
+
+function inRange(frequency: number, limit: FrequencyLimit): boolean {
+  if (typeof limit === 'number') return frequency >= limit;
+  return frequency >= limit.min && frequency <= limit.max;
+}
 
 /**
  * По ключевой фразе получить список НЧ-запросов с частотностью, отфильтровать по лимиту.
+ * Лимит из ячейки: 300 — только запросы с частотой >= 300; "300-500" — только в диапазоне 300..500.
  */
 export async function fetchKeywords(
   phrase: string,
-  frequencyLimit: number
+  frequencyLimit: FrequencyLimit
 ): Promise<WordstatKeywordItem[]> {
   if (!config.yandex.oauthToken.trim()) {
     logWarn('YANDEX_OAUTH_TOKEN is not set, skipping Wordstat', { phrase });
@@ -40,7 +49,7 @@ export async function fetchKeywords(
       }
     }
 
-    return items.filter((item) => item.frequency >= frequencyLimit);
+    return items.filter((item) => inRange(item.frequency, frequencyLimit));
   } catch (e) {
     logWarn('Wordstat topRequests failed', { phrase, error: e });
     throw e;

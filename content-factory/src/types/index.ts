@@ -13,12 +13,16 @@ export type TaskStatus =
   | 'Ошибка'
   | 'На доработку';
 
+/** Лимит частотности: одно число (минимум) или диапазон "min-max". */
+export type FrequencyLimit = number | { min: number; max: number };
+
 /** Строка листа «Задания» (индексы колонок для чтения/записи задаются в sheets/tasks и writer). */
 export interface Task {
   rowIndex: number;
   platform: string;
   keyword: string;
-  frequencyLimit: number;
+  /** Минимум частотности или { min, max }. Из ячейки парсится "300-500" → { min: 300, max: 500 }, "300" → 300. */
+  frequencyLimit: FrequencyLimit;
   headline: string | null;
   keywords: string | null;
   status: TaskStatus;
@@ -76,5 +80,8 @@ export interface TokenUsage {
   prompt_tokens: number;
   completion_tokens: number;
   total_tokens?: number;
+  /** Стоимость в USD (OpenRouter отдаёт в usage.cost). */
   total_cost?: number;
+  /** Идентификатор модели (для fallback-расчёта стоимости по токенам). */
+  model?: string;
 }
