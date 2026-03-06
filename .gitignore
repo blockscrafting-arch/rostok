@@ -8,3 +8,12 @@ node_modules/
 dist/
 *.log
 logs/
+
+# Документы и MD
+*.md
+*.docx
+*.pdf
+документы/
+
+# Cursor
+.cursor/
