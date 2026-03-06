@@ -17,3 +17,6 @@ logs/
 
 # Cursor
 .cursor/
+
+# Временные скрипты
+content-factory/scripts/git-rm-cached.js
