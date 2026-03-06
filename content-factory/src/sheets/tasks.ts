@@ -19,24 +19,23 @@ function parseFrequencyLimit(v: unknown): FrequencyLimit {
   return Number.isNaN(n) || n < 0 ? 300 : n;
 }
 
-/** Индексы колонок (0-based). Порядок по ТЗ. */
+/** Индексы колонок (0-based). Без колонки «Площадка»: A=Ключевое слово, B=Лимит частотности, ... O=Комментарий. */
 const COL = {
-  platform: 0,
-  keyword: 1,
-  frequencyLimit: 2,
-  headline: 3,
-  keywords: 4,
-  status: 5,
-  previewText: 6,
-  sources: 7,
-  imageUrl: 8,
-  utmUrl: 9,
-  postUrl: 10,
-  costText: 11,
-  costImage: 12,
-  costTotal: 13,
-  date: 14,
-  comment: 15,
+  keyword: 0,
+  frequencyLimit: 1,
+  headline: 2,
+  keywords: 3,
+  status: 4,
+  previewText: 5,
+  sources: 6,
+  imageUrl: 7,
+  utmUrl: 8,
+  postUrl: 9,
+  costText: 10,
+  costImage: 11,
+  costTotal: 12,
+  date: 13,
+  comment: 14,
 } as const;
 
 const VALID_STATUSES: TaskStatus[] = [
@@ -65,7 +64,6 @@ function parseRow(row: unknown[], sheetRowIndex: number): Task | null {
 
   return {
     rowIndex: sheetRowIndex,
-    platform: String(row[COL.platform] ?? '').trim(),
     keyword,
     frequencyLimit: parseFrequencyLimit(row[COL.frequencyLimit]),
     headline: String(row[COL.headline] ?? '').trim() || null,
@@ -91,7 +89,7 @@ function parseRow(row: unknown[], sheetRowIndex: number): Task | null {
 export async function readTasks(): Promise<Task[]> {
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `'${SHEET_NAME}'!A2:P`,
+    range: `'${SHEET_NAME}'!A2:O`,
   });
   const rows = (res.data.values ?? []) as unknown[][];
   const tasks: Task[] = [];

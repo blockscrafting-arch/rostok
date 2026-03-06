@@ -31,12 +31,23 @@ export function markdownToTelegramHtml(text: string): string {
   let processed = text.replace(/^(#+)\s+(.+)$/gm, '<b>$2</b>');
   const len = processed.length;
 
+  // Теги Telegram, которые мы сами вставляем — не экранировать (выводим как есть)
+  const telegramTagRe = /^<\/?(b|i|code|pre)>/;
+
   while (i < len) {
     // [text](url)
     const linkMatch = processed.slice(i).match(/^\[([^\]]*)\]\(([^)]+)\)/);
     if (linkMatch) {
       out += '<a href="' + escapeHtml(linkMatch[2].trim()) + '">' + escapeHtml(linkMatch[1]) + '</a>';
       i += linkMatch[0].length;
+      continue;
+    }
+
+    // Уже вставленные теги <b>, </b>, <i>, </i> и т.д. — не экранировать
+    const tagMatch = processed.slice(i).match(telegramTagRe);
+    if (tagMatch) {
+      out += tagMatch[0];
+      i += tagMatch[0].length;
       continue;
     }
 
@@ -70,7 +81,7 @@ export function markdownToTelegramHtml(text: string): string {
       }
     }
 
-    // Обычный символ
+    // Обычный символ (экранируем только то, что не является нашим тегом)
     const ch = processed[i];
     if (ch === '&' || ch === '<' || ch === '>' || ch === '"') {
       out += escapeHtml(ch);

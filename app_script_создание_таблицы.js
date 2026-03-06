@@ -22,7 +22,6 @@ function setupContentFactory() {
   }
   
   const tasksHeaders = [
-    'Площадка',
     'Ключевое слово',
     'Лимит частотности',
     'Заголовок',
@@ -33,9 +32,9 @@ function setupContentFactory() {
     'Ссылка на картинку',
     'UTM-ссылка',
     'Ссылка на пост в TG',
-    'Стоимость текста (₽)',
-    'Стоимость картинки (₽)',
-    'Итого (₽)',
+    'Стоимость текста ($)',
+    'Стоимость картинки ($)',
+    'Итого ($)',
     'Дата',
     'Комментарий'
   ];
@@ -43,7 +42,7 @@ function setupContentFactory() {
   sheetTasks.getRange(1, 1, 1, tasksHeaders.length).setValues([tasksHeaders]).setFontWeight('bold');
   sheetTasks.setFrozenRows(1);
   
-  // Добавляем выпадающий список для статусов
+  // Выпадающий список для статусов (колонка E = 5)
   const statusRule = SpreadsheetApp.newDataValidation()
     .requireValueInList([
       'Новое', 
@@ -57,13 +56,7 @@ function setupContentFactory() {
       'На доработку'
     ], true)
     .build();
-  sheetTasks.getRange(2, 6, 999, 1).setDataValidation(statusRule);
-  
-  // Выпадающий список для площадки
-  const platformRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(['Дзен', 'VK', 'Одноклассники'], true)
-    .build();
-  sheetTasks.getRange(2, 1, 999, 1).setDataValidation(platformRule);
+  sheetTasks.getRange(2, 5, 999, 5).setDataValidation(statusRule);
   
   
   // 2. Создаем лист "Настройки"

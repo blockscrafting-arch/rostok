@@ -16,10 +16,9 @@ export type TaskStatus =
 /** Лимит частотности: одно число (минимум) или диапазон "min-max". */
 export type FrequencyLimit = number | { min: number; max: number };
 
-/** Строка листа «Задания» (индексы колонок для чтения/записи задаются в sheets/tasks и writer). */
+/** Строка листа «Задания» (индексы колонок для чтения/записи задаются в sheets/tasks и writer). Колонка «Площадка» удалена. */
 export interface Task {
   rowIndex: number;
-  platform: string;
   keyword: string;
   /** Минимум частотности или { min, max }. Из ячейки парсится "300-500" → { min: 300, max: 500 }, "300" → 300. */
   frequencyLimit: FrequencyLimit;
