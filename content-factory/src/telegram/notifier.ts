@@ -6,17 +6,30 @@ import { config } from '../config';
 
 const bot = new Telegraf(config.telegram.botToken);
 
+/** Список chat ID для уведомлений (TELEGRAM_NOTIFY_CHAT_ID — один или несколько через запятую). */
+function getNotifyChatIds(): string[] {
+  return config.telegram.notifyChatId
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
+}
+
 /**
- * Отправить уведомление в чат заказчика (HTML).
+ * Отправить уведомление в чат(ы) заказчика (HTML).
+ * Поддерживает несколько ID в TELEGRAM_NOTIFY_CHAT_ID через запятую.
  */
 export async function notify(message: string): Promise<void> {
-  try {
-    await bot.telegram.sendMessage(config.telegram.notifyChatId, message, {
-      parse_mode: 'HTML',
-    });
-  } catch (e) {
-    console.error('Notify failed:', e);
-  }
+  const chatIds = getNotifyChatIds();
+  const results = await Promise.allSettled(
+    chatIds.map((chatId) =>
+      bot.telegram.sendMessage(chatId, message, { parse_mode: 'HTML' })
+    )
+  );
+  results.forEach((r, i) => {
+    if (r.status === 'rejected') {
+      console.error('Notify failed:', { chatId: chatIds[i], error: r.reason });
+    }
+  });
 }
 
 function escapeHtml(s: string): string {
