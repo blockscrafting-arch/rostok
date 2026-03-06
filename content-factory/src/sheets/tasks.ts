@@ -48,6 +48,7 @@ const VALID_STATUSES: TaskStatus[] = [
   'Опубликовано',
   'Ошибка',
   'На доработку',
+  'Перегенерировать картинку',
 ];
 
 function parseRow(row: unknown[], sheetRowIndex: number): Task | null {

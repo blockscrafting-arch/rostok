@@ -85,6 +85,27 @@ export async function writeGenerationResult(
   });
 }
 
+/** Записать только перегенерированную картинку и стоимость (H, L, M, E). Итого = стоимость текста из строки + costImageUsd. */
+export async function writeRegeneratedImage(
+  task: Task,
+  imageUrl: string,
+  costImageUsd: number,
+  newStatus: TaskStatus = 'Готово к проверке'
+): Promise<void> {
+  const row = task.rowIndex;
+  const costTextUsd = parseFloat(String(task.costText ?? '')) || 0;
+  const costTotalUsd = costTextUsd + costImageUsd;
+  const data = [
+    { range: `'${SHEET_NAME}'!H${row}`, values: [[imageUrl.slice(0, MAX_CELL_URL)]] },
+    { range: `'${SHEET_NAME}'!L${row}`, values: [[costImageUsd]] },
+    { range: `'${SHEET_NAME}'!M${row}`, values: [[costTotalUsd]] },
+    { range: `'${SHEET_NAME}'!E${row}`, values: [[newStatus]] },
+  ];
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId,
+    requestBody: { valueInputOption: 'RAW', data },
+  });
+}
 
 /** Записать ссылку на пост и статус «Опубликовано». */
 export async function writePublished(task: Task, postUrl: string): Promise<void> {

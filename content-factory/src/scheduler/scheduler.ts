@@ -6,6 +6,7 @@ import { readTasks } from '../sheets/tasks';
 import { readSettings } from '../sheets/settings';
 import { semanticsPipeline } from '../pipeline/semantics';
 import { generationPipeline } from '../pipeline/generation';
+import { regenerateImagePipeline } from '../pipeline/regenerateImage';
 import { publishingPipeline } from '../pipeline/publishing';
 import { sendDailySummary } from '../telegram/notifier';
 import { sleep } from '../utils/sleep';
@@ -74,6 +75,17 @@ export async function mainLoop(): Promise<void> {
           dailyErrors.push(`Revision: ${task.headline ?? task.keyword} — ${msg}`);
           logInfo('Revision pipeline error', { task: task.headline, error: e });
           logToSheet('Revision', 'error', `${task.headline ?? task.keyword}: ${msg}`.slice(0, 500)).catch(() => {});
+        }
+      }
+
+      for (const task of tasks.filter((t) => t.status === 'Перегенерировать картинку')) {
+        try {
+          await regenerateImagePipeline(task, settings);
+        } catch (e) {
+          const { message: msg } = serializeError(e);
+          dailyErrors.push(`Regenerate image: ${task.headline ?? task.keyword} — ${msg}`);
+          logInfo('Regenerate image pipeline error', { task: task.headline, error: e });
+          logToSheet('RegenerateImage', 'error', `${task.headline ?? task.keyword}: ${msg}`.slice(0, 500)).catch(() => {});
         }
       }
 
