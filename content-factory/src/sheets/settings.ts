@@ -32,7 +32,9 @@ async function fetchDocContent(docUrl: string): Promise<string> {
       }
     }
     return parts.join('').trim();
-  } catch {
+  } catch (e) {
+    const err = e instanceof Error ? e.message : String(e);
+    logWarn('fetchDocContent error', { docUrl, error: err });
     return '';
   }
 }

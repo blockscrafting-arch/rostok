@@ -25,13 +25,19 @@ function isAfterSummaryTime(summaryTime: string): boolean {
   return nowM >= targetM;
 }
 
+let isRunning = true;
+
+export function stopScheduler(): void {
+  isRunning = false;
+}
+
 export async function mainLoop(): Promise<void> {
   let publishedToday = 0;
   let lastDateKey = '';
   let dailySummarySentDate = '';
   const dailyErrors: string[] = [];
 
-  while (true) {
+  while (isRunning) {
     try {
       const settings = await readSettings();
       const tasks = await readTasks();
@@ -127,4 +133,5 @@ export async function mainLoop(): Promise<void> {
       await sleep(60_000);
     }
   }
+  logInfo('Main loop stopped');
 }

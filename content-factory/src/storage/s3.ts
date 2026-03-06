@@ -3,6 +3,11 @@
  */
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { config } from '../config';
+import { logWarn } from '../utils/logger';
+
+if (!config.s3.accessKey?.trim() || !config.s3.secretKey?.trim()) {
+  logWarn('S3 credentials missing. Image upload will fail or be skipped.');
+}
 
 const s3 = new S3Client({
   endpoint: config.s3.endpoint,
