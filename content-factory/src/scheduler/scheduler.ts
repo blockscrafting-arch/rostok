@@ -10,7 +10,7 @@ import { generationPipeline } from '../pipeline/generation';
 import { publishingPipeline } from '../pipeline/publishing';
 import { sendDailySummary } from '../telegram/notifier';
 import { sleep } from '../utils/sleep';
-import { logInfo } from '../utils/logger';
+import { logInfo, logToSheet, serializeError } from '../utils/logger';
 
 function todayKey(): string {
   return new Date().toISOString().slice(0, 10);
@@ -46,9 +46,10 @@ export async function mainLoop(): Promise<void> {
         try {
           await semanticsPipeline(task, settings);
         } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
+          const { message: msg } = serializeError(e);
           dailyErrors.push(`Semantics: ${task.keyword} — ${msg}`);
           logInfo('Semantics pipeline error', { task: task.keyword, error: e });
+          logToSheet('Semantics', 'error', `${task.keyword}: ${msg}`.slice(0, 500)).catch(() => {});
         }
       }
 
@@ -56,9 +57,10 @@ export async function mainLoop(): Promise<void> {
         try {
           await generationPipeline(task, settings, { isRevision: false });
         } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
+          const { message: msg } = serializeError(e);
           dailyErrors.push(`Generation: ${task.headline ?? task.keyword} — ${msg}`);
           logInfo('Generation pipeline error', { task: task.headline, error: e });
+          logToSheet('Generation', 'error', `${task.headline ?? task.keyword}: ${msg}`.slice(0, 500)).catch(() => {});
         }
       }
 
@@ -69,9 +71,10 @@ export async function mainLoop(): Promise<void> {
             editorComment: task.comment ?? undefined,
           });
         } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
+          const { message: msg } = serializeError(e);
           dailyErrors.push(`Revision: ${task.headline ?? task.keyword} — ${msg}`);
           logInfo('Revision pipeline error', { task: task.headline, error: e });
+          logToSheet('Revision', 'error', `${task.headline ?? task.keyword}: ${msg}`.slice(0, 500)).catch(() => {});
         }
       }
 
@@ -83,9 +86,10 @@ export async function mainLoop(): Promise<void> {
           await publishingPipeline(task);
           publishedToday += 1;
         } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
+          const { message: msg } = serializeError(e);
           dailyErrors.push(`Publish: ${task.headline ?? task.keyword} — ${msg}`);
           logInfo('Publishing pipeline error', { task: task.headline, error: e });
+          logToSheet('Publish', 'error', `${task.headline ?? task.keyword}: ${msg}`.slice(0, 500)).catch(() => {});
         }
       }
 
@@ -99,13 +103,17 @@ export async function mainLoop(): Promise<void> {
           dailySummarySentDate = today;
           dailyErrors.length = 0;
         } catch (e) {
+          const { message: msg } = serializeError(e);
           logInfo('Daily summary error', { error: e });
+          logToSheet('DailySummary', 'error', msg.slice(0, 500)).catch(() => {});
         }
       }
 
       await sleep(settings.pollInterval);
     } catch (e) {
+      const { message: msg } = serializeError(e);
       logInfo('Main loop error', { error: e });
+      logToSheet('MainLoop', 'error', msg.slice(0, 500)).catch(() => {});
       await sleep(60_000);
     }
   }

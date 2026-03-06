@@ -1,8 +1,9 @@
 /**
  * Retry с экспоненциальной задержкой (2s → 4s → 8s + jitter).
- * После исчерпания попыток — уведомление в Telegram и выброс ошибки.
+ * После исчерпания попыток — уведомление в Telegram, запись в лист «Лог», выброс ошибки.
  */
 import { config } from '../config';
+import { logToSheet, serializeError } from './logger';
 import { sleep } from './sleep';
 
 let notifyFn: ((msg: string) => Promise<void>) | null = null;
@@ -24,8 +25,10 @@ export async function withRetry<T>(
     } catch (error) {
       lastError = error;
       if (attempt === maxAttempts) {
-        const msg = `❌ ${label}: все ${maxAttempts} попытки провалились.\n${error instanceof Error ? error.message : String(error)}`;
+        const { message } = serializeError(error);
+        const msg = `❌ ${label}: все ${maxAttempts} попытки провалились.\n${message}`;
         if (notifyFn) await notifyFn(msg).catch(() => {});
+        logToSheet(label, 'error', `${message}`.slice(0, 500)).catch(() => {});
         throw error;
       }
       const delay = baseDelayMs * Math.pow(2, attempt - 1);

@@ -1,14 +1,35 @@
 /**
  * Логирование: консоль + при необходимости запись в лист «Лог».
+ * Ошибки сериализуются с message и stack, чтобы в логах не было пустого {}.
  */
 import { google } from 'googleapis';
 import { config } from '../config';
 
 const LOG_SHEET_NAME = 'Лог';
+const MAX_STACK_LENGTH = 800;
+
+/** Сериализация ошибки для логов: сообщение и стек (обрезанный). */
+export function serializeError(error: unknown): { message: string; stack?: string } {
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      stack: error.stack ? error.stack.slice(0, MAX_STACK_LENGTH) : undefined,
+    };
+  }
+  return { message: String(error) };
+}
+
+/** При JSON.stringify подменяем Error на { message, stack }, иначе выйдет {}. */
+function jsonReplacer(_key: string, value: unknown): unknown {
+  if (value instanceof Error) {
+    return { name: value.name, message: value.message, stack: value.stack?.slice(0, MAX_STACK_LENGTH) };
+  }
+  return value;
+}
 
 function formatMsg(level: string, message: string, meta?: unknown): string {
   const ts = new Date().toISOString();
-  const extra = meta ? ` ${JSON.stringify(meta)}` : '';
+  const extra = meta !== undefined ? ` ${JSON.stringify(meta, jsonReplacer)}` : '';
   return `[${ts}] ${level} ${message}${extra}`;
 }
 
@@ -21,8 +42,9 @@ export function logWarn(message: string, meta?: unknown): void {
 }
 
 export function logError(message: string, error?: unknown): void {
-  const errMsg = error instanceof Error ? error.message : String(error);
-  console.error(formatMsg('ERROR', message, errMsg));
+  const { message: errMsg, stack } = serializeError(error ?? new Error(message));
+  const meta = stack ? { message: errMsg, stack } : { message: errMsg };
+  console.error(formatMsg('ERROR', message, meta));
 }
 
 /**
