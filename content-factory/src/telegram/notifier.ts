@@ -3,6 +3,7 @@
  */
 import { Telegraf } from 'telegraf';
 import { config } from '../config';
+import { getTodayStats, getWeekStats, getMonthStats } from '../sheets/statistics';
 
 const bot = new Telegraf(config.telegram.botToken);
 
@@ -41,14 +42,27 @@ function escapeHtml(s: string): string {
 }
 
 /**
- * Ежедневная сводка (статьи, расходы). Вызывается из scheduler по расписанию.
+ * Ежедневная сводка: день, неделя, месяц, средняя цена. Вызывается из scheduler по расписанию.
  */
-export async function sendDailySummary(
-  articlesCount: number,
-  totalCostUsd: number,
-  errors?: string[]
-): Promise<void> {
-  let text = `<b>Сводка за день</b>\nСтатей: ${articlesCount}\nРасход: $${totalCostUsd.toFixed(4)}`;
+export async function sendDailySummary(errors?: string[]): Promise<void> {
+  const [day, week, month] = await Promise.all([
+    getTodayStats(),
+    getWeekStats(),
+    getMonthStats(),
+  ]);
+  const fmt = (v: number) => v.toFixed(4);
+  let text = `<b>Сводка за день</b>\nСтатей: ${day.count}\nРасход: $${fmt(day.totalCostUsd)}`;
+  if (day.count > 0) {
+    text += `\nСредняя за статью: $${fmt(day.avgCostUsd)}`;
+  }
+  text += `\n\n<b>За неделю</b>\nСтатей: ${week.count}\nРасход: $${fmt(week.totalCostUsd)}`;
+  if (week.count > 0) {
+    text += `\nСредняя за статью: $${fmt(week.avgCostUsd)}`;
+  }
+  text += `\n\n<b>За месяц</b>\nСтатей: ${month.count}\nРасход: $${fmt(month.totalCostUsd)}`;
+  if (month.count > 0) {
+    text += `\nСредняя за статью: $${fmt(month.avgCostUsd)}`;
+  }
   if (errors?.length) {
     text += '\n\nОшибки:\n' + errors.slice(0, 5).map(escapeHtml).join('\n');
   }

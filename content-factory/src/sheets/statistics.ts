@@ -43,26 +43,73 @@ export async function appendStatistics(row: StatRow): Promise<void> {
 }
 
 const DATE_COL_INDEX = 7; // H = 8-я колонка, 0-based = 7
+const COST_COL_INDEX = 6; // G = Итого ($)
 
-/**
- * Статистика за сегодня: число строк и сумма по колонке «Итого ($)».
- */
-export async function getTodayStats(): Promise<{ count: number; totalCostUsd: number }> {
-  const today = new Date().toISOString().slice(0, 10);
+export interface PeriodStats {
+  count: number;
+  totalCostUsd: number;
+  avgCostUsd: number;
+}
+
+async function readAllRows(): Promise<(string | number)[][]> {
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId,
     range: `'${SHEET_NAME}'!A:H`,
   });
-  const rows = (res.data.values ?? []) as (string | number)[][];
+  return (res.data.values ?? []) as (string | number)[][];
+}
+
+/**
+ * Статистика за период [fromDate, toDate] (даты в формате YYYY-MM-DD включительно).
+ */
+export async function getStatsForPeriod(
+  fromDate: string,
+  toDate: string
+): Promise<PeriodStats> {
+  const rows = await readAllRows();
   let count = 0;
   let totalCostUsd = 0;
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
     const date = String(row[DATE_COL_INDEX] ?? '').trim();
-    if (date !== today) continue;
+    if (date < fromDate || date > toDate) continue;
     count += 1;
-    const cost = Number(row[6]);
+    const cost = Number(row[COST_COL_INDEX]);
     if (!Number.isNaN(cost)) totalCostUsd += cost;
   }
-  return { count, totalCostUsd };
+  const avgCostUsd = count > 0 ? totalCostUsd / count : 0;
+  return { count, totalCostUsd, avgCostUsd };
+}
+
+/**
+ * Статистика за сегодня.
+ */
+export async function getTodayStats(): Promise<PeriodStats> {
+  const today = new Date().toISOString().slice(0, 10);
+  return getStatsForPeriod(today, today);
+}
+
+/**
+ * Статистика за последние 7 дней (включая сегодня).
+ */
+export async function getWeekStats(): Promise<PeriodStats> {
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const weekAgo = new Date(now);
+  weekAgo.setDate(weekAgo.getDate() - 6);
+  const weekAgoStr = weekAgo.toISOString().slice(0, 10);
+  return getStatsForPeriod(weekAgoStr, today);
+}
+
+/**
+ * Статистика за текущий календарный месяц.
+ */
+export async function getMonthStats(): Promise<PeriodStats> {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const fromDate = `${year}-${String(month).padStart(2, '0')}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const toDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+  return getStatsForPeriod(fromDate, toDate);
 }

@@ -5,6 +5,9 @@ import { openrouter } from './client';
 import { config } from '../config';
 import type { TokenUsage } from '../types';
 
+/**
+ * Черновик по одному заголовку и фактам. Подзаголовки (H2) модель задаёт сама по смыслу текста.
+ */
 export async function generateDraft(
   headline: string,
   keywords: string[],
@@ -20,7 +23,7 @@ export async function generateDraft(
 Проверенные факты из веб-источников:
 ${facts}
 
-Напиши SEO-статью до 4000 символов, опираясь на эти факты.`;
+Напиши SEO-статью до 4000 символов, опираясь на эти факты. Структурируй статью с 3–5 логичными подзаголовками второго уровня (##), которые вытекают из содержания.`;
   if (editorComment) {
     userContent += `\n\nЗамечание редактора (обязательно учти при генерации): ${editorComment}`;
   }

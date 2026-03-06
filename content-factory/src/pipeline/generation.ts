@@ -30,9 +30,8 @@ export async function generationPipeline(
   options: GenerationOptions = {}
 ): Promise<void> {
   const { isRevision = false, editorComment } = options;
-  let rawHeadline = task.headline?.trim() ?? '';
-  rawHeadline = rawHeadline.split('\n')[0].trim();
-  const headline = rawHeadline.slice(0, MAX_HEADLINE_LENGTH);
+  const rawCell = (task.headline?.trim() ?? '').split('\n').map((s) => s.trim()).filter(Boolean);
+  const headline = (rawCell[0] ?? '').slice(0, MAX_HEADLINE_LENGTH);
   if (!headline || (task.status !== 'Согласовано' && task.status !== 'На доработку')) return;
 
   const comment = ((editorComment ?? task.comment ?? '') as string).slice(0, MAX_COMMENT_LENGTH) || undefined;
@@ -52,8 +51,7 @@ export async function generationPipeline(
     );
 
     const { text: draftText, usage: usageDraft } = await withRetry(
-      () =>
-        generateDraft(headline, keywords, settings.prompt2, settings.role, facts, comment),
+      () => generateDraft(headline, keywords, settings.prompt2, settings.role, facts, comment),
       'Draft'
     );
 

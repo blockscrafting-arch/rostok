@@ -4,7 +4,6 @@
  */
 import { readTasks } from '../sheets/tasks';
 import { readSettings } from '../sheets/settings';
-import { getTodayStats } from '../sheets/statistics';
 import { semanticsPipeline } from '../pipeline/semantics';
 import { generationPipeline } from '../pipeline/generation';
 import { publishingPipeline } from '../pipeline/publishing';
@@ -98,8 +97,7 @@ export async function mainLoop(): Promise<void> {
         isAfterSummaryTime(settings.dailySummaryTime)
       ) {
         try {
-          const { count, totalCostUsd } = await getTodayStats();
-          await sendDailySummary(count, totalCostUsd, dailyErrors.length ? dailyErrors : undefined);
+          await sendDailySummary(dailyErrors.length ? dailyErrors : undefined);
           dailySummarySentDate = today;
           dailyErrors.length = 0;
         } catch (e) {
