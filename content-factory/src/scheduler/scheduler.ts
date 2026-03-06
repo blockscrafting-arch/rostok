@@ -98,8 +98,8 @@ export async function mainLoop(): Promise<void> {
         isAfterSummaryTime(settings.dailySummaryTime)
       ) {
         try {
-          const { count, totalCostRub } = await getTodayStats();
-          await sendDailySummary(count, totalCostRub, dailyErrors.length ? dailyErrors : undefined);
+          const { count, totalCostUsd } = await getTodayStats();
+          await sendDailySummary(count, totalCostUsd, dailyErrors.length ? dailyErrors : undefined);
           dailySummarySentDate = today;
           dailyErrors.length = 0;
         } catch (e) {

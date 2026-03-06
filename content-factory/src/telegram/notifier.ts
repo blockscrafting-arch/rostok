@@ -45,10 +45,10 @@ function escapeHtml(s: string): string {
  */
 export async function sendDailySummary(
   articlesCount: number,
-  totalCostRub: number,
+  totalCostUsd: number,
   errors?: string[]
 ): Promise<void> {
-  let text = `<b>Сводка за день</b>\nСтатей: ${articlesCount}\nРасход: ${totalCostRub.toFixed(2)} ₽`;
+  let text = `<b>Сводка за день</b>\nСтатей: ${articlesCount}\nРасход: $${totalCostUsd.toFixed(4)}`;
   if (errors?.length) {
     text += '\n\nОшибки:\n' + errors.slice(0, 5).map(escapeHtml).join('\n');
   }

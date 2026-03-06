@@ -7,7 +7,7 @@ import { generateDraft } from '../ai/draft';
 import { humanize } from '../ai/humanize';
 import { generatePlantImage } from '../ai/image';
 import { uploadImage } from '../storage/s3';
-import { splitCostRub } from '../ai/cost';
+import { splitCostUsd } from '../ai/cost';
 import { writeGenerationResult, updateStatus, setStatusError } from '../sheets/writer';
 import { appendStatistics } from '../sheets/statistics';
 import { withRetry } from '../utils/retry';
@@ -30,7 +30,9 @@ export async function generationPipeline(
   options: GenerationOptions = {}
 ): Promise<void> {
   const { isRevision = false, editorComment } = options;
-  const headline = (task.headline?.trim() ?? '').slice(0, MAX_HEADLINE_LENGTH);
+  let rawHeadline = task.headline?.trim() ?? '';
+  rawHeadline = rawHeadline.split('\n')[0].trim();
+  const headline = rawHeadline.slice(0, MAX_HEADLINE_LENGTH);
   if (!headline || (task.status !== 'Согласовано' && task.status !== 'На доработку')) return;
 
   const comment = ((editorComment ?? task.comment ?? '') as string).slice(0, MAX_COMMENT_LENGTH) || undefined;
@@ -72,30 +74,40 @@ export async function generationPipeline(
     let costImageUsd = 0;
     try {
       const imgResult = await withRetry(() => generatePlantImage(headline), 'Image');
-      imageUrl = imgResult.imageUrl;
       if (imgResult.costUsd) costImageUsd = imgResult.costUsd;
-      if (imgResult.imageUrl && imgResult.imageUrl.startsWith('http')) {
-        const resp = await fetch(imgResult.imageUrl);
-        if (resp.ok) {
-          const buf = Buffer.from(await resp.arrayBuffer());
+      
+      const rawImage = imgResult.imageUrl;
+      if (rawImage) {
+        if (rawImage.startsWith('data:image/')) {
+          // Обработка Base64
+          const base64Data = rawImage.replace(/^data:image\/\w+;base64,/, '');
+          const buf = Buffer.from(base64Data, 'base64');
           const key = `article-${task.rowIndex}-${Date.now()}.png`;
           imageUrl = await withRetry(() => uploadImage(buf, key), 'S3');
+        } else if (rawImage.startsWith('http')) {
+          // Обработка прямой ссылки
+          const resp = await fetch(rawImage);
+          if (resp.ok) {
+            const buf = Buffer.from(await resp.arrayBuffer());
+            const key = `article-${task.rowIndex}-${Date.now()}.png`;
+            imageUrl = await withRetry(() => uploadImage(buf, key), 'S3');
+          }
         }
       }
     } catch (e) {
       logInfo('Image generation or upload failed, continuing without image', { error: e });
     }
 
-    const { costTextRub, costImageRub, costTotalRub } = splitCostRub(textUsages, costImageUsd);
+    const { costTextUsd, costImageUsd: costImgUsd, costTotalUsd } = splitCostUsd(textUsages, costImageUsd);
 
     const result: ArticleResult = {
       previewText,
       sources: citations.join(', '),
       imageUrl,
       utmUrl,
-      costTextRub,
-      costImageRub,
-      costTotalRub,
+      costTextUsd,
+      costImageUsd: costImgUsd,
+      costTotalUsd,
     };
     const nextStatus = settings.moderationEnabled ? 'Готово к проверке' : 'Одобрено';
     await writeGenerationResult(task, result, nextStatus);
@@ -109,13 +121,13 @@ export async function generationPipeline(
       inputTokens,
       outputTokens,
       model: 'DeepSeek+Sonar',
-      costTextRub,
-      costImageRub,
-      costTotalRub,
+      costTextUsd,
+      costImageUsd: costImgUsd,
+      costTotalUsd,
       date: new Date().toISOString().slice(0, 10),
     }).catch(() => {});
 
-    logInfo('Generation done', { headline: headline.slice(0, 50), costTotalRub });
+    logInfo('Generation done', { headline: headline.slice(0, 50), costTotalUsd });
   } catch (error) {
     await setStatusError(task);
     throw error;

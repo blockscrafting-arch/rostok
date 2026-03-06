@@ -33,7 +33,7 @@ export async function publishingPipeline(task: Task): Promise<void> {
 
   try {
     const { postUrl } = await withRetry(
-      () => publishToChannel(toPublish),
+      () => publishToChannel(toPublish, task.imageUrl || undefined),
       'Telegram publish'
     );
     await writePublished(task, postUrl);

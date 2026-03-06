@@ -62,9 +62,9 @@ export interface ArticleResult {
   sources: string;
   imageUrl: string;
   utmUrl: string;
-  costTextRub: number;
-  costImageRub: number;
-  costTotalRub: number;
+  costTextUsd: number;
+  costImageUsd: number;
+  costTotalUsd: number;
 }
 
 /** Агрегированная стоимость по токенам (для калькулятора). */

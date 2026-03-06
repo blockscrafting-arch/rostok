@@ -54,5 +54,4 @@ export const config = {
     retryAttempts: envNum('RETRY_ATTEMPTS', 3),
     retryBaseDelayMs: envNum('RETRY_BASE_DELAY_MS', 2000),
   },
-  usdRubRate: envNum('USD_RUB_RATE', 100),
 } as const;

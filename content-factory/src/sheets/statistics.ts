@@ -10,15 +10,15 @@ export interface StatRow {
   inputTokens: number;
   outputTokens: number;
   model: string;
-  costTextRub: number;
-  costImageRub: number;
-  costTotalRub: number;
+  costTextUsd: number;
+  costImageUsd: number;
+  costTotalUsd: number;
   date: string;
 }
 
 /**
  * Добавить строку в лист «Статистика». RAW — защита от formula injection в заголовке.
- * Колонки: Заголовок | Токены вход | Токены выход | Модель | Стоимость текста (₽) | Стоимость картинки (₽) | Итого (₽) | Дата
+ * Колонки: Заголовок | Токены вход | Токены выход | Модель | Стоимость текста ($) | Стоимость картинки ($) | Итого ($) | Дата
  */
 export async function appendStatistics(row: StatRow): Promise<void> {
   await sheets.spreadsheets.values.append({
@@ -32,9 +32,9 @@ export async function appendStatistics(row: StatRow): Promise<void> {
           row.inputTokens,
           row.outputTokens,
           row.model,
-          row.costTextRub,
-          row.costImageRub,
-          row.costTotalRub,
+          row.costTextUsd,
+          row.costImageUsd,
+          row.costTotalUsd,
           row.date,
         ],
       ],
@@ -45,9 +45,9 @@ export async function appendStatistics(row: StatRow): Promise<void> {
 const DATE_COL_INDEX = 7; // H = 8-я колонка, 0-based = 7
 
 /**
- * Статистика за сегодня: число строк и сумма по колонке «Итого (₽)».
+ * Статистика за сегодня: число строк и сумма по колонке «Итого ($)».
  */
-export async function getTodayStats(): Promise<{ count: number; totalCostRub: number }> {
+export async function getTodayStats(): Promise<{ count: number; totalCostUsd: number }> {
   const today = new Date().toISOString().slice(0, 10);
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId,
@@ -55,14 +55,14 @@ export async function getTodayStats(): Promise<{ count: number; totalCostRub: nu
   });
   const rows = (res.data.values ?? []) as (string | number)[][];
   let count = 0;
-  let totalCostRub = 0;
+  let totalCostUsd = 0;
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
     const date = String(row[DATE_COL_INDEX] ?? '').trim();
     if (date !== today) continue;
     count += 1;
     const cost = Number(row[6]);
-    if (!Number.isNaN(cost)) totalCostRub += cost;
+    if (!Number.isNaN(cost)) totalCostUsd += cost;
   }
-  return { count, totalCostRub };
+  return { count, totalCostUsd };
 }

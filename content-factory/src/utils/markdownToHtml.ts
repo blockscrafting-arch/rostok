@@ -18,6 +18,7 @@ function escapeHtml(s: string): string {
  * - *italic* → <i>italic</i>
  * - [text](url) → <a href="url">text</a>
  * - `code` → <code>code</code>
+ * - Заголовки (#, ##, ...) → <b>Заголовок</b>
  * - Экранирует & < > " внутри текста.
  */
 export function markdownToTelegramHtml(text: string): string {
@@ -25,11 +26,14 @@ export function markdownToTelegramHtml(text: string): string {
 
   let out = '';
   let i = 0;
-  const len = text.length;
+  
+  // Предварительно уберем Markdown-заголовки
+  let processed = text.replace(/^(#+)\s+(.+)$/gm, '<b>$2</b>');
+  const len = processed.length;
 
   while (i < len) {
     // [text](url)
-    const linkMatch = text.slice(i).match(/^\[([^\]]*)\]\(([^)]+)\)/);
+    const linkMatch = processed.slice(i).match(/^\[([^\]]*)\]\(([^)]+)\)/);
     if (linkMatch) {
       out += '<a href="' + escapeHtml(linkMatch[2].trim()) + '">' + escapeHtml(linkMatch[1]) + '</a>';
       i += linkMatch[0].length;
@@ -37,37 +41,37 @@ export function markdownToTelegramHtml(text: string): string {
     }
 
     // **bold**
-    if (text.slice(i, i + 2) === '**') {
-      const end = text.indexOf('**', i + 2);
+    if (processed.slice(i, i + 2) === '**') {
+      const end = processed.indexOf('**', i + 2);
       if (end !== -1) {
-        out += '<b>' + escapeHtml(text.slice(i + 2, end)) + '</b>';
+        out += '<b>' + escapeHtml(processed.slice(i + 2, end)) + '</b>';
         i = end + 2;
         continue;
       }
     }
 
     // *italic* (не **)
-    if (text[i] === '*' && text[i + 1] !== '*') {
-      const end = text.indexOf('*', i + 1);
-      if (end !== -1 && text[end + 1] !== '*') {
-        out += '<i>' + escapeHtml(text.slice(i + 1, end)) + '</i>';
+    if (processed[i] === '*' && processed[i + 1] !== '*') {
+      const end = processed.indexOf('*', i + 1);
+      if (end !== -1 && processed[end + 1] !== '*') {
+        out += '<i>' + escapeHtml(processed.slice(i + 1, end)) + '</i>';
         i = end + 1;
         continue;
       }
     }
 
     // `code`
-    if (text[i] === '`') {
-      const end = text.indexOf('`', i + 1);
+    if (processed[i] === '`') {
+      const end = processed.indexOf('`', i + 1);
       if (end !== -1) {
-        out += '<code>' + escapeHtml(text.slice(i + 1, end)) + '</code>';
+        out += '<code>' + escapeHtml(processed.slice(i + 1, end)) + '</code>';
         i = end + 1;
         continue;
       }
     }
 
     // Обычный символ
-    const ch = text[i];
+    const ch = processed[i];
     if (ch === '&' || ch === '<' || ch === '>' || ch === '"') {
       out += escapeHtml(ch);
     } else {

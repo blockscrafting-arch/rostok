@@ -23,23 +23,34 @@ export async function generatePlantImage(plantNameOrHeadline: string): Promise<I
     messages: [{ role: 'user', content: prompt }],
     max_tokens: 4096,
     // @ts-expect-error OpenRouter extension
-    modalities: ['image', 'text'],
+    modalities: ['image'],
   });
 
   const msg = res.choices[0]?.message;
   let imageUrl = '';
-  const content = msg?.content;
-  if (typeof content === 'string' && content.startsWith('http')) {
-    imageUrl = content.trim().split(/\s/)[0];
-  } else if (Array.isArray(msg?.content)) {
-    for (const part of msg.content as { type: string; image_url?: { url: string }; url?: string }[]) {
-      if (part.type === 'image_url' && part.image_url?.url) {
-        imageUrl = part.image_url.url;
-        break;
-      }
-      if (part.url) {
-        imageUrl = part.url;
-        break;
+  // Ищем Base64 картинку в специальном блоке
+  if (msg?.images && Array.isArray(msg.images) && msg.images.length > 0) {
+    const firstImage = msg.images[0] as { image_url?: { url?: string } };
+    if (firstImage.image_url && typeof firstImage.image_url.url === 'string') {
+      imageUrl = firstImage.image_url.url;
+    }
+  }
+
+  // Fallback (если вдруг пришла ссылка в тексте)
+  if (!imageUrl) {
+    const content = msg?.content;
+    if (typeof content === 'string' && content.startsWith('http')) {
+      imageUrl = content.trim().split(/\s/)[0];
+    } else if (Array.isArray(msg?.content)) {
+      for (const part of msg.content as { type: string; image_url?: { url: string }; url?: string }[]) {
+        if (part.type === 'image_url' && part.image_url?.url) {
+          imageUrl = part.image_url.url;
+          break;
+        }
+        if (part.url) {
+          imageUrl = part.url;
+          break;
+        }
       }
     }
   }

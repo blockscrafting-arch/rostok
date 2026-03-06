@@ -73,9 +73,9 @@ export async function writeGenerationResult(
     { range: `'${SHEET_NAME}'!H${row}`, values: [[sources]] },
     { range: `'${SHEET_NAME}'!I${row}`, values: [[imageUrl]] },
     { range: `'${SHEET_NAME}'!J${row}`, values: [[utmUrl]] },
-    { range: `'${SHEET_NAME}'!L${row}`, values: [[result.costTextRub]] },
-    { range: `'${SHEET_NAME}'!M${row}`, values: [[result.costImageRub]] },
-    { range: `'${SHEET_NAME}'!N${row}`, values: [[result.costTotalRub]] },
+    { range: `'${SHEET_NAME}'!L${row}`, values: [[result.costTextUsd]] },
+    { range: `'${SHEET_NAME}'!M${row}`, values: [[result.costImageUsd]] },
+    { range: `'${SHEET_NAME}'!N${row}`, values: [[result.costTotalUsd]] },
     { range: `'${SHEET_NAME}'!O${row}`, values: [[new Date().toISOString().slice(0, 10)]] },
     { range: `'${SHEET_NAME}'!F${row}`, values: [[newStatus]] },
   ];
