@@ -26,11 +26,13 @@ export async function generatePlantImage(plantNameOrHeadline: string): Promise<I
     modalities: ['image'],
   });
 
-  const msg = res.choices[0]?.message;
+  const msg = res.choices[0]?.message as
+    | { content?: string | unknown[]; images?: Array<{ image_url?: { url?: string } }> }
+    | undefined;
   let imageUrl = '';
-  // Ищем Base64 картинку в специальном блоке
+  // Ищем Base64 картинку в специальном блоке (OpenRouter extension: message.images)
   if (msg?.images && Array.isArray(msg.images) && msg.images.length > 0) {
-    const firstImage = msg.images[0] as { image_url?: { url?: string } };
+    const firstImage = msg.images[0];
     if (firstImage.image_url && typeof firstImage.image_url.url === 'string') {
       imageUrl = firstImage.image_url.url;
     }
