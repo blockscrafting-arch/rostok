@@ -1,0 +1,13 @@
+# Запуск на VPS: docker compose up -d
+# Перед запуском: создать .env и положить keys/service-account.json
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      # Ключ Google — путь в .env: GOOGLE_SERVICE_ACCOUNT_KEY=keys/service-account.json
+      - ./keys:/app/keys:ro
+    # при необходимости переопределить .env переменные:
+    # environment:
+    #   - POLL_INTERVAL_MS=60000
