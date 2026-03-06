@@ -5,6 +5,7 @@
 import { openrouter } from './client';
 import { config } from '../config';
 import type { TokenUsage } from '../types';
+import type { ChatCompletionContentPart } from 'openai/resources/chat/completions';
 
 export interface ImageResult {
   imageUrl: string;
@@ -35,15 +36,15 @@ export async function generatePlantImage(
     ? `This is a reference photo of the plant variety. Generate a new photorealistic image of the same plant in a natural garden or nursery setting, similar appearance and style, high quality, smartphone photo style. Plant/variety: ${plantNameOrHeadline}.`
     : `Photorealistic photo of ${plantNameOrHeadline}, natural lighting, garden or nursery setting, high quality, smartphone photo style.`;
 
-  let messageContent: string | Array<{ type: 'text' | 'image_url'; text?: string; image_url?: { url: string } }>;
+  let messageContent: string | ChatCompletionContentPart[];
   if (referenceImageUrl) {
     const dataUrl =
       referenceImageUrl.startsWith('data:image/') || referenceImageUrl.startsWith('data:application/')
         ? referenceImageUrl
         : await fetchImageAsDataUrl(referenceImageUrl);
     messageContent = [
-      { type: 'image_url' as const, image_url: { url: dataUrl } },
-      { type: 'text' as const, text: textPrompt },
+      { type: 'image_url', image_url: { url: dataUrl } },
+      { type: 'text', text: textPrompt },
     ];
   } else {
     messageContent = textPrompt;
@@ -53,8 +54,8 @@ export async function generatePlantImage(
     model: config.openrouter.imageModel,
     messages: [{ role: 'user', content: messageContent }],
     max_tokens: 4096,
-    // @ts-expect-error OpenRouter extension
-    modalities: ['image'],
+    // OpenRouter extension: image output modality (SDK типизирует только "text" | "audio")
+    modalities: ['image'] as unknown as Array<'text' | 'audio'>,
   });
 
   const msg = res.choices[0]?.message as
