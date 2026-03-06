@@ -3,6 +3,7 @@
  */
 import { google } from 'googleapis';
 import { config } from '../config';
+import { logWarn } from '../utils/logger';
 import { sheets, spreadsheetId } from './client';
 import type { Settings } from '../types';
 
@@ -77,6 +78,13 @@ export async function readSettings(): Promise<Settings> {
     dnaBrandUrl ? fetchDocContent(dnaBrandUrl) : Promise.resolve(''),
     catalogDocUrl ? fetchDocContent(catalogDocUrl) : Promise.resolve(''),
   ]);
+
+  if (dnaBrandUrl && !dnaBrandText.trim()) {
+    logWarn('ДНК Бренда: документ пуст или не загружен', { url: dnaBrandUrl });
+  }
+  if (catalogDocUrl && !catalogRaw.trim()) {
+    logWarn('Справочник каталога: документ пуст или не загружен', { url: catalogDocUrl });
+  }
 
   const catalogMap = parseCatalogMap(catalogRaw);
 

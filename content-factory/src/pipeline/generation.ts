@@ -21,25 +21,28 @@ export interface GenerationOptions {
   editorComment?: string;
 }
 
+const MAX_HEADLINE_LENGTH = 500;
+const MAX_COMMENT_LENGTH = 2000;
+
 export async function generationPipeline(
   task: Task,
   settings: Settings,
   options: GenerationOptions = {}
 ): Promise<void> {
   const { isRevision = false, editorComment } = options;
-  const headline = task.headline?.trim();
+  const headline = (task.headline?.trim() ?? '').slice(0, MAX_HEADLINE_LENGTH);
   if (!headline || (task.status !== 'Согласовано' && task.status !== 'На доработку')) return;
 
-  const comment = editorComment ?? task.comment ?? undefined;
+  const comment = ((editorComment ?? task.comment ?? '') as string).slice(0, MAX_COMMENT_LENGTH) || undefined;
 
   try {
     await updateStatus(task, 'Генерация');
 
     const keywords = (task.keywords ?? '')
       .split(/[,;]/)
-      .map((s) => s.trim())
+      .map((s) => s.trim().slice(0, 500))
       .filter(Boolean);
-    if (!keywords.length) keywords.push(task.keyword);
+    if (!keywords.length) keywords.push((task.keyword ?? '').slice(0, 500));
 
     const { facts, citations, usage: usageGround } = await withRetry(
       () => groundArticleFacts(headline, keywords),
@@ -94,7 +97,8 @@ export async function generationPipeline(
       costImageRub,
       costTotalRub,
     };
-    await writeGenerationResult(task, result, 'Готово к проверке');
+    const nextStatus = settings.moderationEnabled ? 'Готово к проверке' : 'Одобрено';
+    await writeGenerationResult(task, result, nextStatus);
 
     const inputTokens =
       usageGround.prompt_tokens + usageDraft.prompt_tokens + usageHumanize.prompt_tokens;

@@ -18,13 +18,13 @@ function colLetter(col1Based: number): string {
   return s;
 }
 
-/** Обновить одну ячейку (sheetRow — номер строки в листе, 2-based). */
+/** Обновить одну ячейку (sheetRow — номер строки в листе, 2-based). RAW — защита от formula injection. */
 async function updateCell(sheetRow: number, col1Based: number, value: string | number): Promise<void> {
   const range = `'${SHEET_NAME}'!${colLetter(col1Based)}${sheetRow}`;
   await sheets.spreadsheets.values.update({
     spreadsheetId,
     range,
-    valueInputOption: 'USER_ENTERED',
+    valueInputOption: 'RAW',
     requestBody: { values: [[value]] },
   });
 }
@@ -64,7 +64,7 @@ export async function writeGenerationResult(
   ];
   await sheets.spreadsheets.values.batchUpdate({
     spreadsheetId,
-    requestBody: { valueInputOption: 'USER_ENTERED', data },
+    requestBody: { valueInputOption: 'RAW', data },
   });
 }
 
@@ -75,7 +75,7 @@ export async function writePublished(task: Task, postUrl: string): Promise<void>
   await sheets.spreadsheets.values.batchUpdate({
     spreadsheetId,
     requestBody: {
-      valueInputOption: 'USER_ENTERED',
+      valueInputOption: 'RAW',
       data: [
         { range: `'${SHEET_NAME}'!K${row}`, values: [[postUrl]] },
         { range: `'${SHEET_NAME}'!F${row}`, values: [['Опубликовано']] },

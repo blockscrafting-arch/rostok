@@ -31,11 +31,12 @@ export async function groundArticleFacts(
   });
 
   const content = res.choices[0]?.message?.content ?? '';
+  const u = res.usage as { total_cost?: number; cost?: number } | undefined;
   const usage: TokenUsage = {
     prompt_tokens: res.usage?.prompt_tokens ?? 0,
     completion_tokens: res.usage?.completion_tokens ?? 0,
     total_tokens: res.usage?.total_tokens,
-    total_cost: (res as { usage?: { total_cost?: number } }).usage?.total_cost,
+    total_cost: u?.total_cost ?? u?.cost,
   };
 
   const citations: string[] = [];

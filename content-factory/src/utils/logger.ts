@@ -43,7 +43,7 @@ export async function logToSheet(
     await s.spreadsheets.values.append({
       spreadsheetId: config.google.spreadsheetId,
       range: `'${LOG_SHEET_NAME}'!A:D`,
-      valueInputOption: 'USER_ENTERED',
+      valueInputOption: 'RAW',
       requestBody: {
         values: [[new Date().toISOString(), action, result, errorMessage ?? '']],
       },

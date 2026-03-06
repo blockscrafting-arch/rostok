@@ -19,6 +19,14 @@ export async function notify(message: string): Promise<void> {
   }
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 /**
  * Ежедневная сводка (статьи, расходы). Вызывается из scheduler по расписанию.
  */
@@ -29,7 +37,7 @@ export async function sendDailySummary(
 ): Promise<void> {
   let text = `<b>Сводка за день</b>\nСтатей: ${articlesCount}\nРасход: ${totalCostRub.toFixed(2)} ₽`;
   if (errors?.length) {
-    text += `\n\nОшибки:\n${errors.slice(0, 5).join('\n')}`;
+    text += '\n\nОшибки:\n' + errors.slice(0, 5).map(escapeHtml).join('\n');
   }
   await notify(text);
 }
