@@ -4,7 +4,8 @@
   "description": "Контент-Завод: генерация статей из ключевых слов, публикация в Telegram/Дзен",
   "main": "dist/index.js",
   "scripts": {
-    "build": "node --max-old-space-size=512 ./node_modules/typescript/bin/tsc",
+    "build": "node -e \"require('fs').mkdirSync('dist',{recursive:true})\" && node ./node_modules/esbuild/bin/esbuild src/index.ts --bundle --platform=node --target=node20 --outfile=dist/index.js --packages=external",
+    "build:tsc": "tsc",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
     "test": "vitest",
@@ -19,6 +20,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.9.0",
+    "esbuild": "^0.24.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.3",
     "vitest": "^2.1.9"
