@@ -55,7 +55,7 @@ function parseCatalogMap(text: string): Record<string, string> {
 
 /**
  * Настройки хранятся в виде пар ключ-значение (колонки A, B) или одной таблицы.
- * Предполагаем: A — параметр, B — значение. Строки: Роль, Промпт 1, Промпт 2, Промпт 3, ДНК Бренда, Справочник каталога, Шаблон UTM, Telegram Channel ID, Макс. статей в день, Режим модерации, Время сводки.
+ * Предполагаем: A — параметр, B — значение. Строки: Роль, Промпт 1, Промпт 2, Промпт 3, ДНК Бренда, Справочник каталога, Справочник фото, Шаблон UTM, Telegram Channel ID, Макс. статей в день, Режим модерации, Время сводки.
  */
 export async function readSettings(): Promise<Settings> {
   const res = await sheets.spreadsheets.values.get({
@@ -73,10 +73,12 @@ export async function readSettings(): Promise<Settings> {
   const get = (key: string, def: string) => byKey[key] ?? def;
   const dnaBrandUrl = get('ДНК Бренда', get('ДНК бренда', ''));
   const catalogDocUrl = get('Справочник каталога', get('Справочник каталога', ''));
+  const referencePhotoDocUrl = get('Справочник фото', '');
 
-  const [dnaBrandText, catalogRaw] = await Promise.all([
+  const [dnaBrandText, catalogRaw, referencePhotoRaw] = await Promise.all([
     dnaBrandUrl ? fetchDocContent(dnaBrandUrl) : Promise.resolve(''),
     catalogDocUrl ? fetchDocContent(catalogDocUrl) : Promise.resolve(''),
+    referencePhotoDocUrl ? fetchDocContent(referencePhotoDocUrl) : Promise.resolve(''),
   ]);
 
   if (dnaBrandUrl && !dnaBrandText.trim()) {
@@ -85,8 +87,12 @@ export async function readSettings(): Promise<Settings> {
   if (catalogDocUrl && !catalogRaw.trim()) {
     logWarn('Справочник каталога: документ пуст или не загружен', { url: catalogDocUrl });
   }
+  if (referencePhotoDocUrl && !referencePhotoRaw.trim()) {
+    logWarn('Справочник фото: документ пуст или не загружен', { url: referencePhotoDocUrl });
+  }
 
   const catalogMap = parseCatalogMap(catalogRaw);
+  const referencePhotoMap = parseCatalogMap(referencePhotoRaw);
 
   const maxArticlesPerDay = Math.max(1, parseInt(get('Макс. статей в день', '10'), 10) || 10);
   const moderationEnabled = /^(1|да|yes|вкл|on|true)$/i.test(get('Режим модерации', 'вкл'));
@@ -100,6 +106,7 @@ export async function readSettings(): Promise<Settings> {
     catalogDocUrl,
     dnaBrandText,
     catalogMap,
+    referencePhotoMap,
     utmTemplate: get('Шаблон UTM', '?utm_source=dzen&utm_medium=article&utm_campaign={campaign}'),
     telegramChannelId: get('Telegram Channel ID', get('Channel ID', config.telegram.channelId)),
     maxArticlesPerDay,

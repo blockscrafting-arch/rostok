@@ -70,8 +70,23 @@ export async function generationPipeline(
 
     let imageUrl = '';
     let costImageUsd = 0;
+    const referencePhotoMap = settings.referencePhotoMap ?? {};
+    const headlineLower = headline.toLowerCase();
+    let referencePhotoUrl = '';
+    for (const [section, url] of Object.entries(referencePhotoMap)) {
+      if (section && url && headlineLower.includes(section.toLowerCase())) {
+        referencePhotoUrl = url;
+        break;
+      }
+    }
+    if (!referencePhotoUrl && Object.keys(referencePhotoMap).length > 0) {
+      referencePhotoUrl = Object.values(referencePhotoMap)[0] ?? '';
+    }
     try {
-      const imgResult = await withRetry(() => generatePlantImage(headline), 'Image');
+      const imgResult = await withRetry(
+        () => generatePlantImage(headline, referencePhotoUrl || undefined),
+        'Image'
+      );
       if (imgResult.costUsd) costImageUsd = imgResult.costUsd;
       
       const rawImage = imgResult.imageUrl;

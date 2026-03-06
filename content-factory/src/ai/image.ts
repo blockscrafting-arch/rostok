@@ -1,5 +1,6 @@
 /**
  * Генерация фотореалистичной картинки растения (Gemini 3.1 Flash Image Preview / image-capable model).
+ * Опционально: референсное фото сорта — модель генерирует изображение на его основе.
  */
 import { openrouter } from './client';
 import { config } from '../config';
@@ -11,16 +12,46 @@ export interface ImageResult {
   costUsd?: number;
 }
 
+/** Скачать картинку по URL и вернуть как data URL (base64). */
+async function fetchImageAsDataUrl(url: string): Promise<string> {
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status}`);
+  const buf = Buffer.from(await resp.arrayBuffer());
+  const base64 = buf.toString('base64');
+  const contentType = resp.headers.get('content-type') || 'image/jpeg';
+  return `data:${contentType};base64,${base64}`;
+}
+
 /**
- * Сгенерировать изображение по названию растения. Возвращает URL (если модель отдаёт URL) или base64.
+ * Сгенерировать изображение по названию растения. Если передан referenceImageUrl (реальное фото сорта),
+ * модель получает его в сообщении и генерирует картинку на его основе.
  * OpenRouter: chat/completions с modalities: ["image", "text"].
  */
-export async function generatePlantImage(plantNameOrHeadline: string): Promise<ImageResult> {
-  const prompt = `Photorealistic photo of ${plantNameOrHeadline}, natural lighting, garden or nursery setting, high quality, smartphone photo style.`;
+export async function generatePlantImage(
+  plantNameOrHeadline: string,
+  referenceImageUrl?: string
+): Promise<ImageResult> {
+  const textPrompt = referenceImageUrl
+    ? `This is a reference photo of the plant variety. Generate a new photorealistic image of the same plant in a natural garden or nursery setting, similar appearance and style, high quality, smartphone photo style. Plant/variety: ${plantNameOrHeadline}.`
+    : `Photorealistic photo of ${plantNameOrHeadline}, natural lighting, garden or nursery setting, high quality, smartphone photo style.`;
+
+  let messageContent: string | Array<{ type: 'text' | 'image_url'; text?: string; image_url?: { url: string } }>;
+  if (referenceImageUrl) {
+    const dataUrl =
+      referenceImageUrl.startsWith('data:image/') || referenceImageUrl.startsWith('data:application/')
+        ? referenceImageUrl
+        : await fetchImageAsDataUrl(referenceImageUrl);
+    messageContent = [
+      { type: 'image_url' as const, image_url: { url: dataUrl } },
+      { type: 'text' as const, text: textPrompt },
+    ];
+  } else {
+    messageContent = textPrompt;
+  }
 
   const res = await openrouter.chat.completions.create({
     model: config.openrouter.imageModel,
-    messages: [{ role: 'user', content: prompt }],
+    messages: [{ role: 'user', content: messageContent }],
     max_tokens: 4096,
     // @ts-expect-error OpenRouter extension
     modalities: ['image'],

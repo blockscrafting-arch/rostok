@@ -47,6 +47,8 @@ export interface Settings {
   catalogDocUrl: string;
   dnaBrandText: string;
   catalogMap: Record<string, string>;
+  /** Справочник фото сортов: «Название сорта/раздела» → URL картинки (для референса при генерации). */
+  referencePhotoMap: Record<string, string>;
   utmTemplate: string;
   telegramChannelId: string;
   maxArticlesPerDay: number;

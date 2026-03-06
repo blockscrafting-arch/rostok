@@ -12,6 +12,7 @@ function makeSettings(overrides: Partial<Settings> = {}): Settings {
     catalogDocUrl: '',
     dnaBrandText: '',
     catalogMap: {},
+    referencePhotoMap: {},
     utmTemplate: '?utm_source=dzen&utm_medium=article&utm_campaign={campaign}',
     telegramChannelId: '',
     maxArticlesPerDay: 10,
