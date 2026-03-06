@@ -1,0 +1,146 @@
+/**
+ * Скрипт создания структуры листов Контент-Завод в Google Таблице.
+ * 
+ * ИНСТРУКЦИЯ:
+ * 1. Создайте пустую Google Таблицу.
+ * 2. В верхнем меню выберите Расширения -> Apps Script.
+ * 3. Удалите всё из открывшегося редактора и вставьте этот код.
+ * 4. Нажмите кнопку "Выполнить" (Run) в верхней панели.
+ * 5. Предоставьте запрошенные разрешения (Review permissions -> Ваш аккаунт -> Advanced -> Go to ...).
+ * 6. После завершения скрипта закройте вкладку Apps Script - таблица готова.
+ */
+
+function setupContentFactory() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // 1. Создаем лист "Задания"
+  let sheetTasks = ss.getSheetByName('Задания');
+  if (!sheetTasks) {
+    sheetTasks = ss.insertSheet('Задания');
+  } else {
+    sheetTasks.clear();
+  }
+  
+  const tasksHeaders = [
+    'Площадка',
+    'Ключевое слово',
+    'Лимит частотности',
+    'Заголовок',
+    'Ключевые запросы',
+    'Статус',
+    'Превью текста',
+    'Источники (граундинг)',
+    'Ссылка на картинку',
+    'UTM-ссылка',
+    'Ссылка на пост в TG',
+    'Стоимость текста (₽)',
+    'Стоимость картинки (₽)',
+    'Итого (₽)',
+    'Дата',
+    'Комментарий'
+  ];
+  
+  sheetTasks.getRange(1, 1, 1, tasksHeaders.length).setValues([tasksHeaders]).setFontWeight('bold');
+  sheetTasks.setFrozenRows(1);
+  
+  // Добавляем выпадающий список для статусов
+  const statusRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList([
+      'Новое', 
+      'На согласовании', 
+      'Согласовано', 
+      'Генерация', 
+      'Готово к проверке', 
+      'Одобрено', 
+      'Опубликовано', 
+      'Ошибка', 
+      'На доработку'
+    ], true)
+    .build();
+  sheetTasks.getRange(2, 6, 999, 1).setDataValidation(statusRule);
+  
+  // Выпадающий список для площадки
+  const platformRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['Дзен', 'VK', 'Одноклассники'], true)
+    .build();
+  sheetTasks.getRange(2, 1, 999, 1).setDataValidation(platformRule);
+  
+  
+  // 2. Создаем лист "Настройки"
+  let sheetSettings = ss.getSheetByName('Настройки');
+  if (!sheetSettings) {
+    sheetSettings = ss.insertSheet('Настройки');
+  } else {
+    sheetSettings.clear();
+  }
+  
+  const settingsData = [
+    ['Параметр', 'Значение'],
+    ['Роль', 'Ведущий агроном питомника с 20-летним стажем'],
+    ['Промпт 1', 'По ключевому слову {keyword} и запросам {keywords} сгенерируй 30 заголовков статей для блога питомника. Нумеруй с новой строки.'],
+    ['Промпт 2', 'Ты — {role}. Пиши экспертную SEO-статью для блога питомника. Используй только проверенные факты из блока выше. Текст должен быть полезным, структурированным и до 4000 символов.'],
+    ['Промпт 3', 'Перепиши этот черновик в нашем корпоративном стиле. Опирайся на ДНК бренда. Убери сухость, добавь дружелюбия, но сохрани все факты. Строго до 4000 символов.'],
+    ['ДНК Бренда', ''],
+    ['Справочник каталога', ''],
+    ['Шаблон UTM', '?utm_source=dzen&utm_medium=article&utm_campaign={campaign}'],
+    ['Telegram Channel ID', ''],
+    ['Макс. статей в день', '10'],
+    ['Режим модерации', 'вкл'],
+    ['Время сводки', '21:00']
+  ];
+  
+  sheetSettings.getRange(1, 1, settingsData.length, 2).setValues(settingsData);
+  sheetSettings.getRange(1, 1, 1, 2).setFontWeight('bold');
+  sheetSettings.setFrozenRows(1);
+  sheetSettings.setColumnWidth(1, 200);
+  sheetSettings.setColumnWidth(2, 400);
+
+
+  // 3. Создаем лист "Статистика"
+  let sheetStats = ss.getSheetByName('Статистика');
+  if (!sheetStats) {
+    sheetStats = ss.insertSheet('Статистика');
+  } else {
+    sheetStats.clear();
+  }
+  
+  const statsHeaders = [
+    'Заголовок',
+    'Токены вход',
+    'Токены выход',
+    'Модель',
+    'Стоимость текста (₽)',
+    'Стоимость картинки (₽)',
+    'Итого (₽)',
+    'Дата'
+  ];
+  
+  sheetStats.getRange(1, 1, 1, statsHeaders.length).setValues([statsHeaders]).setFontWeight('bold');
+  sheetStats.setFrozenRows(1);
+
+
+  // 4. Создаем лист "Лог"
+  let sheetLog = ss.getSheetByName('Лог');
+  if (!sheetLog) {
+    sheetLog = ss.insertSheet('Лог');
+  } else {
+    sheetLog.clear();
+  }
+  
+  const logHeaders = ['Время', 'Действие', 'Результат', 'Ошибка'];
+  sheetLog.getRange(1, 1, 1, logHeaders.length).setValues([logHeaders]).setFontWeight('bold');
+  sheetLog.setFrozenRows(1);
+  sheetLog.setColumnWidth(1, 150);
+  sheetLog.setColumnWidth(2, 200);
+  sheetLog.setColumnWidth(4, 400);
+
+
+  // 5. Удаляем дефолтный Лист 1 (если он остался пустым и мы создали новые)
+  const defaultSheet = ss.getSheetByName('Лист 1') || ss.getSheetByName('Sheet1');
+  if (defaultSheet && ss.getSheets().length > 1) {
+    ss.deleteSheet(defaultSheet);
+  }
+  
+  // Возвращаем фокус на лист Задания
+  ss.setActiveSheet(sheetTasks);
+}

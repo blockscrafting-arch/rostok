@@ -1,0 +1,57 @@
+/**
+ * Генерация UTM-ссылки: тема статьи → поиск в справочнике каталога → подстановка в шаблон.
+ */
+import { Settings } from '../types';
+
+/**
+ * Из темы/заголовка извлекаем ключевое слово для каталога (например «Розы»).
+ * Ищем в catalogMap ключ (раздел каталога) и подставляем base URL + UTM.
+ */
+function slugifyTopic(topic: string): string {
+  return topic
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-zа-яё0-9-]/gi, '');
+}
+
+/**
+ * По заголовку/теме подбираем раздел каталога и собираем UTM-ссылку.
+ * template пример: "https://site.ru/catalog/{topic}?utm_source=dzen&utm_medium=article&utm_campaign={campaign}"
+ * catalogMap: { "Розы": "https://site.ru/catalog/roses", ... }
+ */
+export function buildUtmUrl(
+  headline: string,
+  settings: Settings
+): string {
+  const { catalogMap, utmTemplate } = settings;
+  const topicSlug = slugifyTopic(headline);
+
+  // Ищем первый ключ, который входит в заголовок (без учёта регистра)
+  const headlineLower = headline.toLowerCase();
+  let baseUrl = '';
+  for (const [section, url] of Object.entries(catalogMap)) {
+    if (headlineLower.includes(section.toLowerCase())) {
+      baseUrl = url;
+      break;
+    }
+  }
+
+  // Если не нашли — берём первый URL из справочника или только UTM-параметры
+  if (!baseUrl && Object.keys(catalogMap).length > 0) {
+    baseUrl = Object.values(catalogMap)[0];
+  }
+
+  // Подставляем {topic} и {campaign} в шаблон
+  let url = utmTemplate
+    .replace(/\{topic\}/g, topicSlug)
+    .replace(/\{campaign\}/g, topicSlug);
+
+  // Если в шаблоне нет полного URL, префиксируем baseUrl
+  if (url.startsWith('?')) {
+    url = (baseUrl || '').replace(/\?.*$/, '') + url;
+  } else if (!url.startsWith('http') && baseUrl) {
+    url = baseUrl.replace(/\?.*$/, '') + (url.startsWith('/') ? url : `?${url}`);
+  }
+
+  return url || utmTemplate;
+}

@@ -1,0 +1,10 @@
+# Секреты и окружение
+.env
+*.env.local
+secrets/
+
+# Сборки и зависимости
+node_modules/
+dist/
+*.log
+logs/

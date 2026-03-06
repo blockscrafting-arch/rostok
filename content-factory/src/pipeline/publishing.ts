@@ -1,0 +1,36 @@
+/**
+ * Пайплайн: одобренная статья → публикация в Telegram → статус «Опубликовано» + ссылка на пост.
+ */
+import { publishToChannel } from '../telegram/publisher';
+import { notify } from '../telegram/notifier';
+import { writePublished, setStatusError } from '../sheets/writer';
+import { withRetry } from '../utils/retry';
+import { logInfo } from '../utils/logger';
+import type { Task } from '../types';
+
+const MAX_TEXT_LENGTH = 4096;
+
+export async function publishingPipeline(task: Task): Promise<void> {
+  if (task.status !== 'Одобрено') return;
+
+  const text = task.previewText?.trim();
+  if (!text) {
+    await setStatusError(task);
+    throw new Error('Нет текста для публикации');
+  }
+
+  const toPublish = text.length > MAX_TEXT_LENGTH ? text.slice(0, MAX_TEXT_LENGTH) : text;
+
+  try {
+    const { postUrl } = await withRetry(
+      () => publishToChannel(toPublish),
+      'Telegram publish'
+    );
+    await writePublished(task, postUrl);
+    await notify(`Опубликовано: <a href="${postUrl}">${(task.headline ?? '').slice(0, 60)}</a>`);
+    logInfo('Published', { postUrl, headline: task.headline?.slice(0, 50) });
+  } catch (error) {
+    await setStatusError(task);
+    throw error;
+  }
+}
