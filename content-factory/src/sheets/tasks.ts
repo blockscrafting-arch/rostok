@@ -55,7 +55,8 @@ function parseRow(row: unknown[], sheetRowIndex: number): Task | null {
   const keyword = String(row[COL.keyword] ?? '').trim();
   const statusRaw = String(row[COL.status] ?? '').trim();
   if (!keyword) return null;
-  if (statusRaw && !VALID_STATUSES.includes(statusRaw as TaskStatus)) return null;
+  if (!statusRaw) return null;
+  if (!VALID_STATUSES.includes(statusRaw as TaskStatus)) return null;
   const status = statusRaw as TaskStatus;
 
   const num = (v: unknown) => {
@@ -69,7 +70,7 @@ function parseRow(row: unknown[], sheetRowIndex: number): Task | null {
     frequencyLimit: parseFrequencyLimit(row[COL.frequencyLimit]),
     headline: String(row[COL.headline] ?? '').trim() || null,
     keywords: String(row[COL.keywords] ?? '').trim() || null,
-    status: (status && VALID_STATUSES.includes(status) ? status : 'Новое') as TaskStatus,
+    status,
     previewText: String(row[COL.previewText] ?? '').trim() || null,
     sources: String(row[COL.sources] ?? '').trim() || null,
     imageUrl: String(row[COL.imageUrl] ?? '').trim() || null,
