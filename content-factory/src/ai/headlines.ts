@@ -4,6 +4,7 @@
  */
 import { openrouter } from './client';
 import { config } from '../config';
+import { logInfo } from '../utils/logger';
 import type { TokenUsage } from '../types';
 
 export interface HeadlineItem {
@@ -67,9 +68,18 @@ function parseHeadlinesLegacy(text: string): string[] {
   return lines.slice(0, 30);
 }
 
+/** КЗ для fallback-строки: разные срезы по индексу, чтобы не дублировать одни и те же. */
+function getFallbackKeywords(keywordList: string[], index: number): string[] {
+  const n = keywordList.length;
+  if (n === 0) return [];
+  const start = (index * 5) % n;
+  const slice = keywordList.slice(start, start + 10).filter(Boolean);
+  return slice.length ? slice : keywordList.slice(0, 10);
+}
+
 const DEFAULT_PROMPT = `По ключевому слову "{keyword}" и НЧ-запросам: {keywords}.
 Сгенерируй 30 заголовков статей для блога питомника (лаконичные, с пользой для читателя).
-Для каждого заголовка подбери 5–10 наиболее релевантных НЧ-запросов из списка выше.
+Для каждого заголовка подбери свой набор из 5–10 наиболее релевантных НЧ-запросов из списка выше. Разные заголовки — разные подмножества КЗ (например, заголовок про сорт Voyage — КЗ про Voyage, про Роз де Цистерсьен — КЗ про него).
 Формат ответа — строго:
 1. [Заголовок]
 КЗ: [запрос1, запрос2, ...]
@@ -97,11 +107,17 @@ export async function generateHeadlines(
   const content = res.choices[0]?.message?.content ?? '';
   let items = parseHeadlinesWithKeywords(content, keywordList);
 
+  logInfo('parseHeadlinesWithKeywords', {
+    count: items.length,
+    sampleKeywords: items.slice(0, 3).map((i) => i.keywords),
+    rawPreview: content.slice(0, 400),
+  });
+
   if (items.length === 0) {
     const headlinesLegacy = parseHeadlinesLegacy(content);
-    items = headlinesLegacy.map((h) => ({
+    items = headlinesLegacy.map((h, i) => ({
       headline: h,
-      keywords: keywordList.slice(0, 10),
+      keywords: getFallbackKeywords(keywordList, i),
     }));
   } else if (items.length < 30) {
     const headlinesLegacy = parseHeadlinesLegacy(content);
@@ -111,7 +127,7 @@ export async function generateHeadlines(
       const key = h.toLowerCase();
       if (!seen.has(key)) {
         seen.add(key);
-        items.push({ headline: h, keywords: keywordList.slice(0, 10) });
+        items.push({ headline: h, keywords: getFallbackKeywords(keywordList, items.length) });
       }
     }
   }
