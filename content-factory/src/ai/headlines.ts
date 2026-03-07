@@ -1,22 +1,83 @@
 /**
  * Генерация 30 заголовков по НЧ-запросам (Промпт 1).
+ * AI возвращает пары «заголовок → 5–10 релевантных КЗ» для каждой строки.
  */
 import { openrouter } from './client';
 import { config } from '../config';
 import type { TokenUsage } from '../types';
 
+export interface HeadlineItem {
+  headline: string;
+  keywords: string[];
+}
+
 export interface HeadlinesResult {
-  headlines: string[];
+  items: HeadlineItem[];
   usage: TokenUsage;
 }
 
-function parseHeadlines(text: string): string[] {
+/** Парсит ответ AI: блоки "N. Заголовок" + "КЗ: запрос1, запрос2, ..." */
+function parseHeadlinesWithKeywords(
+  text: string,
+  fallbackKeywordList: string[]
+): HeadlineItem[] {
+  const items: HeadlineItem[] = [];
+  let blocks = text.split(/\n\s*\n/).filter((b) => b.trim());
+  if (blocks.length < 5) {
+    blocks = text.split(/\n(?=\d+[.)]\s)/).filter((b) => b.trim());
+  }
+
+  for (const block of blocks) {
+    const lines = block.split(/\n/).map((s) => s.trim()).filter(Boolean);
+    let headline = '';
+    let keywords: string[] = [];
+
+    for (const line of lines) {
+      const kwMatch = line.match(/^КЗ:\s*(.+)$/i);
+      if (kwMatch) {
+        keywords = kwMatch[1]
+          .split(/[,;]/)
+          .map((s) => s.trim().slice(0, 200))
+          .filter((s) => s.length > 1);
+      } else {
+        const cleaned = line.replace(/^\s*[-*\d.)]\s*/, '').trim();
+        if (cleaned.length > 5 && cleaned.length < 150 && !headline) {
+          headline = cleaned;
+        }
+      }
+    }
+
+    if (headline) {
+      if (keywords.length === 0) {
+        keywords = fallbackKeywordList.slice(0, 10);
+      }
+      items.push({ headline, keywords });
+    }
+  }
+
+  return items.slice(0, 30);
+}
+
+/** Fallback: старый формат — только заголовки, без КЗ. */
+function parseHeadlinesLegacy(text: string): string[] {
   const lines = text
     .split(/\n/)
     .map((s) => s.replace(/^\s*[-*\d.)]\s*/, '').trim())
     .filter((s) => s.length > 5 && s.length < 150);
   return lines.slice(0, 30);
 }
+
+const DEFAULT_PROMPT = `По ключевому слову "{keyword}" и НЧ-запросам: {keywords}.
+Сгенерируй 30 заголовков статей для блога питомника (лаконичные, с пользой для читателя).
+Для каждого заголовка подбери 5–10 наиболее релевантных НЧ-запросов из списка выше.
+Формат ответа — строго:
+1. [Заголовок]
+КЗ: [запрос1, запрос2, ...]
+
+2. [Заголовок]
+КЗ: [запрос1, запрос2, ...]
+...
+(и так до 30)`;
 
 export async function generateHeadlines(
   keyword: string,
@@ -26,7 +87,7 @@ export async function generateHeadlines(
   const kwList = keywordList.length ? keywordList.join(', ') : keyword;
   const userPrompt = prompt1
     ? prompt1.replace(/\{keyword\}/g, keyword).replace(/\{keywords\}/g, kwList)
-    : `По ключевому слову "${keyword}" и НЧ-запросам: ${kwList}. Сгенерируй 30 заголовков статей для блога питомника (лаконичные, с пользой для читателя). Нумеруй с новой строки.`;
+    : DEFAULT_PROMPT.replace(/\{keyword\}/g, keyword).replace(/\{keywords\}/g, kwList);
 
   const res = await openrouter.chat.completions.create({
     model: config.openrouter.textModel,
@@ -34,7 +95,15 @@ export async function generateHeadlines(
   });
 
   const content = res.choices[0]?.message?.content ?? '';
-  const headlines = parseHeadlines(content);
+  let items = parseHeadlinesWithKeywords(content, keywordList);
+
+  if (items.length === 0) {
+    const headlinesLegacy = parseHeadlinesLegacy(content);
+    items = headlinesLegacy.map((h) => ({
+      headline: h,
+      keywords: keywordList.slice(0, 10),
+    }));
+  }
 
   const u = res.usage as { total_cost?: number; cost?: number } | undefined;
   const usage: TokenUsage = {
@@ -45,5 +114,5 @@ export async function generateHeadlines(
     model: config.openrouter.textModel,
   };
 
-  return { headlines, usage };
+  return { items, usage };
 }

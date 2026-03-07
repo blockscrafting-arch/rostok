@@ -5,6 +5,7 @@ import { sheets, spreadsheetId, getSheetId } from './client';
 import type { Task, TaskStatus } from '../types';
 import type { ArticleResult } from '../types';
 import type { FrequencyLimit } from '../types';
+import type { HeadlineItem } from '../ai/headlines';
 
 const SHEET_NAME = 'Задания';
 
@@ -67,19 +68,15 @@ function formatFrequencyLimit(limit: FrequencyLimit): string {
 /**
  * Вставить N новых строк ниже текущей и заполнить их (ключ, лимит, заголовок, НЧ-запросы, статус).
  * Исходная строка должна быть обновлена отдельно (writeKeywords, writeHeadlines для первого заголовка).
- * @param task — исходная задача (rowIndex, keyword, frequencyLimit, keywords)
- * @param headlines — заголовки для новых строк (2..N, первый уже в исходной строке)
+ * @param task — исходная задача (rowIndex, keyword, frequencyLimit)
+ * @param items — заголовки и КЗ для новых строк (2..N, первый уже в исходной строке)
  */
-export async function insertTaskRows(
-  task: Task,
-  headlines: string[],
-  keywordsStr: string
-): Promise<void> {
-  if (headlines.length === 0) return;
+export async function insertTaskRows(task: Task, items: HeadlineItem[]): Promise<void> {
+  if (items.length === 0) return;
 
   const sheetId = await getSheetId();
   const startRow0 = task.rowIndex; // 0-based: строка после исходной
-  const numRows = headlines.length;
+  const numRows = items.length;
 
   await sheets.spreadsheets.batchUpdate({
     spreadsheetId,
@@ -100,15 +97,14 @@ export async function insertTaskRows(
     },
   });
 
-  const kwTruncated = keywordsStr.slice(0, MAX_CELL_KEYWORDS);
   const limitStr = formatFrequencyLimit(task.frequencyLimit);
   const status = 'На согласовании';
 
-  const values = headlines.map((h) => [
+  const values = items.map((item) => [
     task.keyword,
     limitStr,
-    h.slice(0, MAX_ONE_HEADLINE),
-    kwTruncated,
+    item.headline.slice(0, MAX_ONE_HEADLINE),
+    item.keywords.join(', ').slice(0, MAX_CELL_KEYWORDS),
     status,
     '', '', '', '', '', '', '', '', '', // F..O пустые
   ]);

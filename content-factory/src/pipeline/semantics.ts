@@ -30,18 +30,18 @@ export async function semanticsPipeline(task: Task, settings: Settings): Promise
       'Wordstat'
     );
     const kwStrings = keywordList.map((k) => k.keyword.slice(0, MAX_KEYWORD_LENGTH));
-    const { headlines } = await withRetry(
+    const { items } = await withRetry(
       () => generateHeadlines(keywordSafe, kwStrings, settings.prompt1),
       'Headlines'
     );
-    const kwStr = kwStrings.join(', ');
-    await writeKeywords(task, kwStrings);
-    await writeHeadlines(task, headlines.length > 0 ? [headlines[0]] : []);
+    const first = items[0];
+    await writeKeywords(task, first?.keywords ?? []);
+    await writeHeadlines(task, first?.headline ? [first.headline] : []);
     await updateStatus(task, 'На согласовании');
-    if (headlines.length > 1) {
-      await insertTaskRows(task, headlines.slice(1), kwStr);
+    if (items.length > 1) {
+      await insertTaskRows(task, items.slice(1));
     }
-    logInfo('Semantics done', { keyword: task.keyword, headlinesCount: headlines.length });
+    logInfo('Semantics done', { keyword: task.keyword, headlinesCount: items.length });
   } catch (error) {
     await setStatusError(task);
     throw error;
