@@ -59,6 +59,21 @@ export async function writeKeywords(task: Task, keywords: string[]): Promise<voi
   await updateCell(task.rowIndex, 4, line);
 }
 
+/** Записать стоимость заголовков в строку (K, L, M). costPerRow — доля на эту строку. */
+export async function writeHeadlinesCost(task: Task, costPerRow: number): Promise<void> {
+  if (costPerRow <= 0) return;
+  const row = task.rowIndex;
+  const data = [
+    { range: `'${SHEET_NAME}'!K${row}`, values: [[costPerRow]] },
+    { range: `'${SHEET_NAME}'!L${row}`, values: [[0]] },
+    { range: `'${SHEET_NAME}'!M${row}`, values: [[costPerRow]] },
+  ];
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId,
+    requestBody: { valueInputOption: 'RAW', data },
+  });
+}
+
 /** Сериализовать лимит частотности для записи в ячейку. */
 function formatFrequencyLimit(limit: FrequencyLimit): string {
   if (typeof limit === 'number') return String(limit);
@@ -66,12 +81,17 @@ function formatFrequencyLimit(limit: FrequencyLimit): string {
 }
 
 /**
- * Вставить N новых строк ниже текущей и заполнить их (ключ, лимит, заголовок, НЧ-запросы, статус).
- * Исходная строка должна быть обновлена отдельно (writeKeywords, writeHeadlines для первого заголовка).
+ * Вставить N новых строк ниже текущей и заполнить их (ключ, лимит, заголовок, НЧ-запросы, статус, стоимость).
+ * Исходная строка должна быть обновлена отдельно (writeKeywords, writeHeadlines, writeHeadlinesCost для первого заголовка).
  * @param task — исходная задача (rowIndex, keyword, frequencyLimit)
  * @param items — заголовки и КЗ для новых строк (2..N, первый уже в исходной строке)
+ * @param headlinesCostPerRow — доля стоимости заголовков на каждую строку (K, L=0, M)
  */
-export async function insertTaskRows(task: Task, items: HeadlineItem[]): Promise<void> {
+export async function insertTaskRows(
+  task: Task,
+  items: HeadlineItem[],
+  headlinesCostPerRow = 0
+): Promise<void> {
   if (items.length === 0) return;
 
   const sheetId = await getSheetId();
@@ -99,6 +119,9 @@ export async function insertTaskRows(task: Task, items: HeadlineItem[]): Promise
 
   const limitStr = formatFrequencyLimit(task.frequencyLimit);
   const status = 'На согласовании';
+  const costText = headlinesCostPerRow > 0 ? headlinesCostPerRow : '';
+  const costImage = 0;
+  const costTotal = headlinesCostPerRow > 0 ? headlinesCostPerRow : '';
 
   const values = items.map((item) => [
     task.keyword,
@@ -106,7 +129,11 @@ export async function insertTaskRows(task: Task, items: HeadlineItem[]): Promise
     item.headline.slice(0, MAX_ONE_HEADLINE),
     item.keywords.join(', ').slice(0, MAX_CELL_KEYWORDS),
     status,
-    '', '', '', '', '', '', '', '', '', // F..O пустые
+    '', '', '', '', '', // F..J
+    costText,
+    costImage,
+    costTotal,
+    '', '', // N, O
   ]);
 
   // 0-based startRow0 → 1-based sheet row = startRow0 + 1
@@ -130,14 +157,19 @@ export async function writeGenerationResult(
   const sources = (result.sources ?? '').slice(0, MAX_CELL_SOURCES);
   const imageUrl = (result.imageUrl ?? '').slice(0, MAX_CELL_URL);
   const utmUrl = (result.utmUrl ?? '').slice(0, MAX_CELL_URL);
+  const existingCostText = parseFloat(String(task.costText ?? '')) || 0;
+  const existingCostImage = parseFloat(String(task.costImage ?? '')) || 0;
+  const costTextUsd = existingCostText + result.costTextUsd;
+  const costImageUsd = existingCostImage + result.costImageUsd;
+  const costTotalUsd = costTextUsd + costImageUsd;
   const data = [
     { range: `'${SHEET_NAME}'!F${row}`, values: [[preview]] },
     { range: `'${SHEET_NAME}'!G${row}`, values: [[sources]] },
     { range: `'${SHEET_NAME}'!H${row}`, values: [[imageUrl]] },
     { range: `'${SHEET_NAME}'!I${row}`, values: [[utmUrl]] },
-    { range: `'${SHEET_NAME}'!K${row}`, values: [[result.costTextUsd]] },
-    { range: `'${SHEET_NAME}'!L${row}`, values: [[result.costImageUsd]] },
-    { range: `'${SHEET_NAME}'!M${row}`, values: [[result.costTotalUsd]] },
+    { range: `'${SHEET_NAME}'!K${row}`, values: [[costTextUsd]] },
+    { range: `'${SHEET_NAME}'!L${row}`, values: [[costImageUsd]] },
+    { range: `'${SHEET_NAME}'!M${row}`, values: [[costTotalUsd]] },
     { range: `'${SHEET_NAME}'!N${row}`, values: [[new Date().toISOString().slice(0, 10)]] },
     { range: `'${SHEET_NAME}'!E${row}`, values: [[newStatus]] },
   ];

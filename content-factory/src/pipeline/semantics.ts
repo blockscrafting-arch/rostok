@@ -7,11 +7,13 @@ import {
   updateStatus,
   writeHeadlines,
   writeKeywords,
+  writeHeadlinesCost,
   insertTaskRows,
   setStatusError,
 } from '../sheets/writer';
 import { fetchKeywords } from '../wordstat/keywords';
 import { generateHeadlines } from '../ai/headlines';
+import { totalCostUsd } from '../ai/cost';
 import { withRetry } from '../utils/retry';
 import { logInfo } from '../utils/logger';
 import type { Task } from '../types';
@@ -30,18 +32,22 @@ export async function semanticsPipeline(task: Task, settings: Settings): Promise
       'Wordstat'
     );
     const kwStrings = keywordList.map((k) => k.keyword.slice(0, MAX_KEYWORD_LENGTH));
-    const { items } = await withRetry(
+    const { items, usage } = await withRetry(
       () => generateHeadlines(keywordSafe, kwStrings, settings.prompt1),
       'Headlines'
     );
+    const headlinesCostUsd = totalCostUsd([usage]);
+    const costPerRow = items.length > 0 ? headlinesCostUsd / items.length : 0;
+
     const first = items[0];
     await writeKeywords(task, first?.keywords ?? []);
     await writeHeadlines(task, first?.headline ? [first.headline] : []);
+    await writeHeadlinesCost(task, costPerRow);
     await updateStatus(task, 'На согласовании');
     if (items.length > 1) {
-      await insertTaskRows(task, items.slice(1));
+      await insertTaskRows(task, items.slice(1), costPerRow);
     }
-    logInfo('Semantics done', { keyword: task.keyword, headlinesCount: items.length });
+    logInfo('Semantics done', { keyword: task.keyword, headlinesCount: items.length, headlinesCostUsd });
   } catch (error) {
     await setStatusError(task);
     throw error;
