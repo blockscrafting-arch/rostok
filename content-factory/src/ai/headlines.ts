@@ -77,9 +77,45 @@ function getFallbackKeywords(keywordList: string[], index: number): string[] {
   return slice.length ? slice : keywordList.slice(0, 10);
 }
 
+/** Нормализация для сопоставления (систерсьен/цистерсьен). */
+function normalizeForMatch(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/систерсьен/g, 'цистерсьен');
+}
+
+/** Проверяет, упоминает ли заголовок тему из ключевого запроса. */
+function headlineMentionsKeyword(headline: string, keyword: string): boolean {
+  const h = normalizeForMatch(headline);
+  const kw = normalizeForMatch(keyword);
+  if (h.includes(kw)) return true;
+  const skipWords = new Set(['роза', 'розы', 'роз', 'что', 'это', 'за', 'для', 'как', 'и', 'в', 'на', 'с', 'из']);
+  const kwWords = kw.split(/\s+/).filter((w) => w.length > 2 && !skipWords.has(w));
+  return kwWords.some((w) => h.includes(w));
+}
+
+/** Постобработка: добавляет в КЗ релевантные запросы из списка, если заголовок их упоминает, но AI не включил. */
+function ensureRelevantKeywords(items: HeadlineItem[], keywordList: string[]): HeadlineItem[] {
+  if (keywordList.length === 0) return items;
+  return items.map((item) => {
+    const existingNorm = new Set(item.keywords.map((k) => normalizeForMatch(k)));
+    const added: string[] = [];
+    for (const kw of keywordList) {
+      if (existingNorm.has(normalizeForMatch(kw))) continue;
+      if (headlineMentionsKeyword(item.headline, kw)) {
+        added.push(kw);
+        existingNorm.add(normalizeForMatch(kw));
+      }
+    }
+    const keywords = added.length ? [...added, ...item.keywords] : item.keywords;
+    return { ...item, keywords };
+  });
+}
+
 const DEFAULT_PROMPT = `По ключевому слову "{keyword}" и НЧ-запросам: {keywords}.
 Сгенерируй 30 заголовков статей для блога питомника (лаконичные, с пользой для читателя).
-Для каждого заголовка подбери свой набор из 5–10 наиболее релевантных НЧ-запросов из списка выше. Разные заголовки — разные подмножества КЗ (например, заголовок про сорт Voyage — КЗ про Voyage, про Роз де Цистерсьен — КЗ про него).
+Для каждого заголовка подбери свой набор из 5–10 наиболее релевантных НЧ-запросов из списка выше. Разные заголовки — разные подмножества КЗ.
+Важно: если заголовок упоминает конкретный сорт, тип или термин (Voyage, Роз де Цистерсьен, ругоза, шрабы и т.п.) — обязательно включи соответствующий КЗ из списка в пару к этому заголовку.
 Формат ответа — строго:
 1. [Заголовок]
 КЗ: [запрос1, запрос2, ...]
@@ -131,6 +167,8 @@ export async function generateHeadlines(
       }
     }
   }
+
+  items = ensureRelevantKeywords(items, keywordList);
 
   const u = res.usage as { total_cost?: number; cost?: number } | undefined;
   const usage: TokenUsage = {
