@@ -103,6 +103,17 @@ export async function generateHeadlines(
       headline: h,
       keywords: keywordList.slice(0, 10),
     }));
+  } else if (items.length < 30) {
+    const headlinesLegacy = parseHeadlinesLegacy(content);
+    const seen = new Set(items.map((i) => i.headline.toLowerCase()));
+    for (const h of headlinesLegacy) {
+      if (items.length >= 30) break;
+      const key = h.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        items.push({ headline: h, keywords: keywordList.slice(0, 10) });
+      }
+    }
   }
 
   const u = res.usage as { total_cost?: number; cost?: number } | undefined;
