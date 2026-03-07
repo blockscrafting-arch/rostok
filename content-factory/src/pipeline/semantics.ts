@@ -3,7 +3,13 @@
  */
 import { readTasks } from '../sheets/tasks';
 import { readSettings } from '../sheets/settings';
-import { updateStatus, writeHeadlines, writeKeywords, setStatusError } from '../sheets/writer';
+import {
+  updateStatus,
+  writeHeadlines,
+  writeKeywords,
+  insertTaskRows,
+  setStatusError,
+} from '../sheets/writer';
 import { fetchKeywords } from '../wordstat/keywords';
 import { generateHeadlines } from '../ai/headlines';
 import { withRetry } from '../utils/retry';
@@ -28,9 +34,13 @@ export async function semanticsPipeline(task: Task, settings: Settings): Promise
       () => generateHeadlines(keywordSafe, kwStrings, settings.prompt1),
       'Headlines'
     );
+    const kwStr = kwStrings.join(', ');
     await writeKeywords(task, kwStrings);
-    await writeHeadlines(task, headlines);
+    await writeHeadlines(task, headlines.length > 0 ? [headlines[0]] : []);
     await updateStatus(task, 'На согласовании');
+    if (headlines.length > 1) {
+      await insertTaskRows(task, headlines.slice(1), kwStr);
+    }
     logInfo('Semantics done', { keyword: task.keyword, headlinesCount: headlines.length });
   } catch (error) {
     await setStatusError(task);

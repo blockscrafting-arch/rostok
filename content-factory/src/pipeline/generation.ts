@@ -30,8 +30,7 @@ export async function generationPipeline(
   options: GenerationOptions = {}
 ): Promise<void> {
   const { isRevision = false, editorComment } = options;
-  const rawCell = (task.headline?.trim() ?? '').split('\n').map((s) => s.trim()).filter(Boolean);
-  const headline = (rawCell[0] ?? '').slice(0, MAX_HEADLINE_LENGTH);
+  const headline = (task.headline?.trim() ?? '').slice(0, MAX_HEADLINE_LENGTH);
   if (!headline || (task.status !== 'Согласовано' && task.status !== 'На доработку')) return;
 
   const comment = ((editorComment ?? task.comment ?? '') as string).slice(0, MAX_COMMENT_LENGTH) || undefined;

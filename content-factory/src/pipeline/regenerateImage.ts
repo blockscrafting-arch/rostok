@@ -12,8 +12,7 @@ import type { Settings } from '../types';
 const MAX_HEADLINE_LENGTH = 500;
 
 export async function regenerateImagePipeline(task: Task, settings: Settings): Promise<void> {
-  const rawCell = (task.headline?.trim() ?? '').split('\n').map((s) => s.trim()).filter(Boolean);
-  const headline = (rawCell[0] ?? '').slice(0, MAX_HEADLINE_LENGTH);
+  const headline = (task.headline?.trim() ?? '').slice(0, MAX_HEADLINE_LENGTH);
   if (!headline) {
     await setStatusError(task);
     throw new Error('Нет заголовка для перегенерации картинки');

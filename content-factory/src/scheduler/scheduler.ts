@@ -48,7 +48,7 @@ export async function mainLoop(): Promise<void> {
         lastDateKey = today;
       }
 
-      for (const task of tasks.filter((t) => t.status === 'Новое')) {
+      for (const task of tasks.filter((t) => t.status === 'Новое').reverse()) {
         try {
           await semanticsPipeline(task, settings);
         } catch (e) {

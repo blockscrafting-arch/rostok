@@ -1,9 +1,10 @@
 /**
  * Запись результатов в лист «Задания»: статус, заголовки, превью, источники, ссылки, стоимость.
  */
-import { sheets, spreadsheetId } from './client';
+import { sheets, spreadsheetId, getSheetId } from './client';
 import type { Task, TaskStatus } from '../types';
 import type { ArticleResult } from '../types';
+import type { FrequencyLimit } from '../types';
 
 const SHEET_NAME = 'Задания';
 
@@ -55,6 +56,71 @@ export async function writeHeadlines(task: Task, headlines: string[]): Promise<v
 export async function writeKeywords(task: Task, keywords: string[]): Promise<void> {
   const line = keywords.join(', ').slice(0, MAX_CELL_KEYWORDS);
   await updateCell(task.rowIndex, 4, line);
+}
+
+/** Сериализовать лимит частотности для записи в ячейку. */
+function formatFrequencyLimit(limit: FrequencyLimit): string {
+  if (typeof limit === 'number') return String(limit);
+  return `${limit.min}-${limit.max}`;
+}
+
+/**
+ * Вставить N новых строк ниже текущей и заполнить их (ключ, лимит, заголовок, НЧ-запросы, статус).
+ * Исходная строка должна быть обновлена отдельно (writeKeywords, writeHeadlines для первого заголовка).
+ * @param task — исходная задача (rowIndex, keyword, frequencyLimit, keywords)
+ * @param headlines — заголовки для новых строк (2..N, первый уже в исходной строке)
+ */
+export async function insertTaskRows(
+  task: Task,
+  headlines: string[],
+  keywordsStr: string
+): Promise<void> {
+  if (headlines.length === 0) return;
+
+  const sheetId = await getSheetId();
+  const startRow0 = task.rowIndex; // 0-based: строка после исходной
+  const numRows = headlines.length;
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [
+        {
+          insertDimension: {
+            range: {
+              sheetId,
+              dimension: 'ROWS',
+              startIndex: startRow0,
+              endIndex: startRow0 + numRows,
+            },
+            inheritFromBefore: false,
+          },
+        },
+      ],
+    },
+  });
+
+  const kwTruncated = keywordsStr.slice(0, MAX_CELL_KEYWORDS);
+  const limitStr = formatFrequencyLimit(task.frequencyLimit);
+  const status = 'На согласовании';
+
+  const values = headlines.map((h) => [
+    task.keyword,
+    limitStr,
+    h.slice(0, MAX_ONE_HEADLINE),
+    kwTruncated,
+    status,
+    '', '', '', '', '', '', '', '', '', // F..O пустые
+  ]);
+
+  // 0-based startRow0 → 1-based sheet row = startRow0 + 1
+  const range = `'${SHEET_NAME}'!A${startRow0 + 1}:O${startRow0 + numRows}`;
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range,
+    valueInputOption: 'RAW',
+    requestBody: { values },
+  });
 }
 
 /** Записать результат генерации (превью, источники, картинка, UTM, стоимость) и установить статус. */
