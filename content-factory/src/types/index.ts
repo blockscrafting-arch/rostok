@@ -66,6 +66,8 @@ export interface Settings {
   textModel?: string;
   /** Модель для генерации картинки. Пусто — из env. */
   imageModel?: string;
+  /** Кол-во заголовков на одно ключевое слово. По умолчанию 30. */
+  headlinesCount?: number;
 }
 
 /** Результат генерации одной статьи (для записи в таблицу). */

@@ -120,5 +120,6 @@ export async function readSettings(): Promise<Settings> {
     groundingModel: get('Модель граундинга', '') || undefined,
     textModel: get('Модель текста', '') || undefined,
     imageModel: get('Модель картинки', '') || undefined,
+    headlinesCount: Math.max(1, parseInt(get('Макс. заголовков', '30'), 10) || 30),
   };
 }

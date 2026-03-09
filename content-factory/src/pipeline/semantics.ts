@@ -33,7 +33,14 @@ export async function semanticsPipeline(task: Task, settings: Settings): Promise
     );
     const kwStrings = keywordList.map((k) => k.keyword.slice(0, MAX_KEYWORD_LENGTH));
     const { items, usage } = await withRetry(
-      () => generateHeadlines(keywordSafe, kwStrings, settings.prompt1),
+      () =>
+        generateHeadlines(
+          keywordSafe,
+          kwStrings,
+          settings.prompt1,
+          settings.headlinesCount ?? 30,
+          settings.textModel
+        ),
       'Headlines'
     );
     const headlinesCostUsd = totalCostUsd([usage]);
