@@ -45,17 +45,33 @@ export async function generationPipeline(
     if (!keywords.length) keywords.push((task.keyword ?? '').slice(0, 500));
 
     const { facts, citations, usage: usageGround } = await withRetry(
-      () => groundArticleFacts(headline, keywords),
+      () => groundArticleFacts(headline, keywords, settings.groundingModel),
       'Grounding'
     );
 
     const { text: draftText, usage: usageDraft } = await withRetry(
-      () => generateDraft(headline, keywords, settings.prompt2, settings.role, facts, comment),
+      () =>
+        generateDraft(
+          headline,
+          keywords,
+          settings.prompt2,
+          settings.role,
+          facts,
+          comment,
+          settings.textModel
+        ),
       'Draft'
     );
 
     const { text: finalText, usage: usageHumanize } = await withRetry(
-      () => humanize(draftText, settings.prompt3, settings.dnaBrandText, comment),
+      () =>
+        humanize(
+          draftText,
+          settings.prompt3,
+          settings.dnaBrandText,
+          comment,
+          settings.textModel
+        ),
       'Humanize'
     );
 
@@ -81,9 +97,14 @@ export async function generationPipeline(
     if (!referencePhotoUrl && Object.keys(referencePhotoMap).length > 0) {
       referencePhotoUrl = Object.values(referencePhotoMap)[0] ?? '';
     }
+    const imageOptions = {
+      promptImage: settings.promptImage,
+      promptImageWithReference: settings.promptImageWithReference,
+      imageModel: settings.imageModel,
+    };
     try {
       const imgResult = await withRetry(
-        () => generatePlantImage(headline, referencePhotoUrl || undefined),
+        () => generatePlantImage(headline, referencePhotoUrl || undefined, imageOptions),
         'Image'
       );
       if (imgResult.costUsd) costImageUsd = imgResult.costUsd;

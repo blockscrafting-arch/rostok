@@ -31,9 +31,14 @@ export async function regenerateImagePipeline(task: Task, settings: Settings): P
     referencePhotoUrl = Object.values(referencePhotoMap)[0] ?? '';
   }
 
+  const imageOptions = {
+    promptImage: settings.promptImage,
+    promptImageWithReference: settings.promptImageWithReference,
+    imageModel: settings.imageModel,
+  };
   try {
     const imgResult = await withRetry(
-      () => generatePlantImage(headline, referencePhotoUrl || undefined),
+      () => generatePlantImage(headline, referencePhotoUrl || undefined, imageOptions),
       'Regenerate image'
     );
     const costImageUsd = imgResult.costUsd ?? 0;

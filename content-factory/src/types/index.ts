@@ -44,6 +44,10 @@ export interface Settings {
   prompt1: string;
   prompt2: string;
   prompt3: string;
+  /** Промпт для генерации картинки без референса. Плейсхолдер: {headline}. */
+  promptImage?: string;
+  /** Промпт для генерации картинки с референсным фото. Плейсхолдер: {headline}. */
+  promptImageWithReference?: string;
   dnaBrandUrl: string;
   catalogDocUrl: string;
   dnaBrandText: string;
@@ -56,6 +60,12 @@ export interface Settings {
   moderationEnabled: boolean;
   pollInterval: number;
   dailySummaryTime: string;
+  /** Модель для граундинга (поиск фактов). Пусто — из env. */
+  groundingModel?: string;
+  /** Модель для текста (черновик и очеловечивание). Пусто — из env. */
+  textModel?: string;
+  /** Модель для генерации картинки. Пусто — из env. */
+  imageModel?: string;
 }
 
 /** Результат генерации одной статьи (для записи в таблицу). */

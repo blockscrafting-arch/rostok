@@ -14,8 +14,10 @@ export async function generateDraft(
   prompt2: string,
   role: string,
   facts: string,
-  editorComment?: string | null
+  editorComment?: string | null,
+  textModelOverride?: string
 ): Promise<{ text: string; usage: TokenUsage }> {
+  const model = textModelOverride?.trim() || config.openrouter.textModel;
   const kw = keywords.join(', ');
   let userContent = `Заголовок: "${headline}"
 Ключевые слова: ${kw}
@@ -33,7 +35,7 @@ ${facts}
     : `Ты — ${role}. Пиши экспертную статью для блога питомника. Используй только проверенные факты из блока выше. До 4000 символов.`;
 
   const res = await openrouter.chat.completions.create({
-    model: config.openrouter.textModel,
+    model,
     messages: [
       { role: 'system', content: systemContent },
       { role: 'user', content: userContent },
@@ -48,7 +50,7 @@ ${facts}
     completion_tokens: res.usage?.completion_tokens ?? 0,
     total_tokens: res.usage?.total_tokens,
     total_cost: u?.cost ?? u?.total_cost,
-    model: config.openrouter.textModel,
+    model,
   };
   return { text, usage };
 }

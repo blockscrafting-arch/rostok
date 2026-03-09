@@ -1,6 +1,7 @@
 /**
  * Генерация фотореалистичной картинки растения (Gemini 3.1 Flash Image Preview / image-capable model).
  * Опционально: референсное фото сорта — модель генерирует изображение на его основе.
+ * Промпты и модель можно задать в Настройках; в промпте подставляется {headline}.
  */
 import { openrouter } from './client';
 import { config } from '../config';
@@ -13,6 +14,17 @@ export interface ImageResult {
   costUsd?: number;
 }
 
+const DEFAULT_PROMPT_NO_REF =
+  'Photorealistic photo of {headline}, natural lighting, garden or nursery setting, high quality, smartphone photo style.';
+const DEFAULT_PROMPT_WITH_REF =
+  'This is a reference photo of the plant variety. Generate a new photorealistic image of the same plant in a natural garden or nursery setting, similar appearance and style, high quality, smartphone photo style. Plant/variety: {headline}.';
+
+export interface ImageGenerationOptions {
+  promptImage?: string;
+  promptImageWithReference?: string;
+  imageModel?: string;
+}
+
 /** Скачать картинку по URL и вернуть как data URL (base64). */
 async function fetchImageAsDataUrl(url: string): Promise<string> {
   const resp = await fetch(url);
@@ -23,18 +35,26 @@ async function fetchImageAsDataUrl(url: string): Promise<string> {
   return `data:${contentType};base64,${base64}`;
 }
 
+function applyHeadline(template: string, headline: string): string {
+  return template.replace(/\{headline\}/g, headline);
+}
+
 /**
  * Сгенерировать изображение по названию растения. Если передан referenceImageUrl (реальное фото сорта),
  * модель получает его в сообщении и генерирует картинку на его основе.
+ * options: промпты из Настроек (пустые — дефолты из кода), модель (пустая — из config).
  * OpenRouter: chat/completions с modalities: ["image", "text"].
  */
 export async function generatePlantImage(
   plantNameOrHeadline: string,
-  referenceImageUrl?: string
+  referenceImageUrl?: string,
+  options: ImageGenerationOptions = {}
 ): Promise<ImageResult> {
+  const promptNoRef = (options.promptImage?.trim() || DEFAULT_PROMPT_NO_REF).trim();
+  const promptWithRef = (options.promptImageWithReference?.trim() || DEFAULT_PROMPT_WITH_REF).trim();
   const textPrompt = referenceImageUrl
-    ? `This is a reference photo of the plant variety. Generate a new photorealistic image of the same plant in a natural garden or nursery setting, similar appearance and style, high quality, smartphone photo style. Plant/variety: ${plantNameOrHeadline}.`
-    : `Photorealistic photo of ${plantNameOrHeadline}, natural lighting, garden or nursery setting, high quality, smartphone photo style.`;
+    ? applyHeadline(promptWithRef, plantNameOrHeadline)
+    : applyHeadline(promptNoRef, plantNameOrHeadline);
 
   let messageContent: string | ChatCompletionContentPart[];
   if (referenceImageUrl) {
@@ -50,8 +70,9 @@ export async function generatePlantImage(
     messageContent = textPrompt;
   }
 
+  const model = options.imageModel?.trim() || config.openrouter.imageModel;
   const res = await openrouter.chat.completions.create({
-    model: config.openrouter.imageModel,
+    model,
     messages: [{ role: 'user', content: messageContent }],
     max_tokens: 4096,
     // OpenRouter extension: image output modality (SDK типизирует только "text" | "audio")
@@ -96,7 +117,7 @@ export async function generatePlantImage(
     completion_tokens: res.usage?.completion_tokens ?? 0,
     total_tokens: res.usage?.total_tokens,
     total_cost: costUsd,
-    model: config.openrouter.imageModel,
+    model,
   };
 
   return {

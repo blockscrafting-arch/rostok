@@ -13,11 +13,13 @@ export interface GroundingResult {
 
 export async function groundArticleFacts(
   headline: string,
-  keywords: string[]
+  keywords: string[],
+  modelOverride?: string
 ): Promise<GroundingResult> {
+  const model = modelOverride?.trim() || config.openrouter.groundingModel;
   const kw = keywords.length ? keywords.join(', ') : headline;
   const res = await openrouter.chat.completions.create({
-    model: config.openrouter.groundingModel,
+    model,
     messages: [
       {
         role: 'user',
@@ -37,7 +39,7 @@ export async function groundArticleFacts(
     completion_tokens: res.usage?.completion_tokens ?? 0,
     total_tokens: res.usage?.total_tokens,
     total_cost: u?.cost ?? u?.total_cost,
-    model: config.openrouter.groundingModel,
+    model,
   };
 
   const citations: string[] = [];

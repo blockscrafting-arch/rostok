@@ -9,8 +9,10 @@ export async function humanize(
   draft: string,
   prompt3: string,
   dnaBrandText: string,
-  editorComment?: string | null
+  editorComment?: string | null,
+  textModelOverride?: string
 ): Promise<{ text: string; usage: TokenUsage }> {
+  const model = textModelOverride?.trim() || config.openrouter.textModel;
   let userContent = `Черновик статьи:
 ---
 ${draft}
@@ -25,7 +27,7 @@ ${dnaBrandText || 'Не указано.'}
   }
 
   const res = await openrouter.chat.completions.create({
-    model: config.openrouter.textModel,
+    model,
     messages: [{ role: 'user', content: userContent }],
     max_tokens: 2048,
   });
@@ -37,7 +39,7 @@ ${dnaBrandText || 'Не указано.'}
     completion_tokens: res.usage?.completion_tokens ?? 0,
     total_tokens: res.usage?.total_tokens,
     total_cost: u?.cost ?? u?.total_cost,
-    model: config.openrouter.textModel,
+    model,
   };
   return { text, usage };
 }

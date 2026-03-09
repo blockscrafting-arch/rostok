@@ -104,6 +104,8 @@ export async function readSettings(): Promise<Settings> {
     prompt1: get('Промпт 1', ''),
     prompt2: get('Промпт 2', ''),
     prompt3: get('Промпт 3', ''),
+    promptImage: get('Промпт картинки', ''),
+    promptImageWithReference: get('Промпт картинки с референсом', ''),
     dnaBrandUrl,
     catalogDocUrl,
     dnaBrandText,
@@ -115,5 +117,8 @@ export async function readSettings(): Promise<Settings> {
     moderationEnabled,
     pollInterval: config.schedule.pollIntervalMs,
     dailySummaryTime: get('Время сводки', '21:00'),
+    groundingModel: get('Модель граундинга', '') || undefined,
+    textModel: get('Модель текста', '') || undefined,
+    imageModel: get('Модель картинки', '') || undefined,
   };
 }
