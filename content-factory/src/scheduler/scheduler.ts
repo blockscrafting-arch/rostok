@@ -6,6 +6,7 @@ import { readTasks } from '../sheets/tasks';
 import { readSettings } from '../sheets/settings';
 import { semanticsPipeline } from '../pipeline/semantics';
 import { generationPipeline } from '../pipeline/generation';
+import { imageGenerationPipeline } from '../pipeline/imageGeneration';
 import { regenerateImagePipeline } from '../pipeline/regenerateImage';
 import { publishingPipeline } from '../pipeline/publishing';
 import { sendDailySummary } from '../telegram/notifier';
@@ -70,9 +71,7 @@ export async function mainLoop(): Promise<void> {
         }
       }
 
-      const canRunGeneration = isAfterTime(settings.generationTime);
-      for (const task of tasks.filter((t) => t.status === 'Согласовано')) {
-        if (!canRunGeneration) break;
+      for (const task of tasks.filter((t) => t.status === 'Согласован заголовок')) {
         try {
           await generationPipeline(task, settings, { isRevision: false });
         } catch (e) {
@@ -80,6 +79,19 @@ export async function mainLoop(): Promise<void> {
           dailyErrors.push(`Generation: ${task.headline ?? task.keyword} — ${msg}`);
           logInfo('Generation pipeline error', { task: task.headline, error: e });
           logToSheet('Generation', 'error', `${task.headline ?? task.keyword}: ${msg}`.slice(0, 500)).catch(() => {});
+        }
+      }
+
+      const canRunImageGeneration = isAfterTime(settings.generationTime);
+      for (const task of tasks.filter((t) => t.status === 'Текст готов, ждём картинку')) {
+        if (!canRunImageGeneration) break;
+        try {
+          await imageGenerationPipeline(task, settings);
+        } catch (e) {
+          const { message: msg } = serializeError(e);
+          dailyErrors.push(`Image: ${task.headline ?? task.keyword} — ${msg}`);
+          logInfo('Image generation pipeline error', { task: task.headline, error: e });
+          logToSheet('ImageGeneration', 'error', `${task.headline ?? task.keyword}: ${msg}`.slice(0, 500)).catch(() => {});
         }
       }
 
@@ -108,7 +120,7 @@ export async function mainLoop(): Promise<void> {
         }
       }
 
-      const approved = tasks.filter((t) => t.status === 'Одобрено');
+      const approved = tasks.filter((t) => t.status === 'Одобрено на публикацию');
       const limit = Math.max(0, settings.maxArticlesPerDay - publishedToday);
       const intervalMs = settings.publishIntervalMin * 60_000;
       const canPublishNext = limit > 0 && (lastPublishedAt === 0 || Date.now() - lastPublishedAt >= intervalMs);

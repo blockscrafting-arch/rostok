@@ -1,21 +1,19 @@
 /**
- * Пайплайн: заголовок → граундинг → черновик → очеловечивание → UTM → картинка → S3 → таблица.
+ * Пайплайн генерации текста: заголовок → граундинг → черновик → очеловечивание → UTM → таблица (статус «Текст готов, ждём картинку»).
+ * Картинка генерируется отдельно в imageGeneration.ts после generationTime (например 05:00).
  */
 import { buildUtmUrl } from '../utils/utm';
 import { groundArticleFacts } from '../ai/grounding';
 import { generateDraft } from '../ai/draft';
 import { humanize } from '../ai/humanize';
-import { generatePlantImage } from '../ai/image';
-import { uploadImage } from '../storage/s3';
 import { splitCostUsd } from '../ai/cost';
-import { writeGenerationResult, updateStatus, setStatusError } from '../sheets/writer';
+import { writeTextResult, updateStatus, setStatusError } from '../sheets/writer';
 import { appendStatistics } from '../sheets/statistics';
 import { withRetry } from '../utils/retry';
 import { logInfo } from '../utils/logger';
-import { truncateAtSentence } from '../utils/text';
+import { truncateAtSentence, cleanArticleFirstLine } from '../utils/text';
 import type { Task } from '../types';
 import type { Settings } from '../types';
-import type { ArticleResult } from '../types';
 
 export interface GenerationOptions {
   isRevision?: boolean;
@@ -32,7 +30,7 @@ export async function generationPipeline(
 ): Promise<void> {
   const { isRevision = false, editorComment } = options;
   const headline = (task.headline?.trim() ?? '').slice(0, MAX_HEADLINE_LENGTH);
-  if (!headline || (task.status !== 'Согласовано' && task.status !== 'На доработку')) return;
+  if (!headline || (task.status !== 'Согласован заголовок' && task.status !== 'На доработку')) return;
 
   const comment = ((editorComment ?? task.comment ?? '') as string).slice(0, MAX_COMMENT_LENGTH) || undefined;
 
@@ -76,75 +74,22 @@ export async function generationPipeline(
       'Humanize'
     );
 
-    if (finalText.length > 4000) {
-      logInfo('Text exceeded 4000 chars, truncating', { len: finalText.length });
+    const cleanedText = cleanArticleFirstLine(finalText);
+    if (cleanedText.length > 4000) {
+      logInfo('Text exceeded 4000 chars, truncating', { len: cleanedText.length });
     }
-    const previewText = truncateAtSentence(finalText, 4000);
+    const previewText = truncateAtSentence(cleanedText, 4000);
 
     const utmUrl = buildUtmUrl(headline, settings, task.keyword ?? '');
     const textUsages = [usageGround, usageDraft, usageHumanize];
+    const { costTextUsd } = splitCostUsd(textUsages, 0);
 
-    let imageUrl = '';
-    let costImageUsd = 0;
-    const referencePhotoMap = settings.referencePhotoMap ?? {};
-    const headlineLower = headline.toLowerCase();
-    let referencePhotoUrl = '';
-    for (const [section, url] of Object.entries(referencePhotoMap)) {
-      if (section && url && headlineLower.includes(section.toLowerCase())) {
-        referencePhotoUrl = url;
-        break;
-      }
-    }
-    if (!referencePhotoUrl && Object.keys(referencePhotoMap).length > 0) {
-      referencePhotoUrl = Object.values(referencePhotoMap)[0] ?? '';
-    }
-    const imageOptions = {
-      promptImage: settings.promptImage,
-      promptImageWithReference: settings.promptImageWithReference,
-      imageModel: settings.imageModel,
-    };
-    try {
-      const imgResult = await withRetry(
-        () => generatePlantImage(headline, referencePhotoUrl || undefined, imageOptions),
-        'Image'
-      );
-      if (imgResult.costUsd) costImageUsd = imgResult.costUsd;
-      
-      const rawImage = imgResult.imageUrl;
-      if (rawImage) {
-        if (rawImage.startsWith('data:image/')) {
-          // Обработка Base64
-          const base64Data = rawImage.replace(/^data:image\/\w+;base64,/, '');
-          const buf = Buffer.from(base64Data, 'base64');
-          const key = `article-${task.rowIndex}-${Date.now()}.png`;
-          imageUrl = await withRetry(() => uploadImage(buf, key), 'S3');
-        } else if (rawImage.startsWith('http')) {
-          // Обработка прямой ссылки
-          const resp = await fetch(rawImage);
-          if (resp.ok) {
-            const buf = Buffer.from(await resp.arrayBuffer());
-            const key = `article-${task.rowIndex}-${Date.now()}.png`;
-            imageUrl = await withRetry(() => uploadImage(buf, key), 'S3');
-          }
-        }
-      }
-    } catch (e) {
-      logInfo('Image generation or upload failed, continuing without image', { error: e });
-    }
-
-    const { costTextUsd, costImageUsd: costImgUsd, costTotalUsd } = splitCostUsd(textUsages, costImageUsd);
-
-    const result: ArticleResult = {
+    await writeTextResult(task, {
       previewText,
       sources: citations.join(', '),
-      imageUrl,
       utmUrl,
       costTextUsd,
-      costImageUsd: costImgUsd,
-      costTotalUsd,
-    };
-    const nextStatus = settings.moderationEnabled ? 'Готово к проверке' : 'Одобрено';
-    await writeGenerationResult(task, result, nextStatus);
+    });
 
     const inputTokens =
       usageGround.prompt_tokens + usageDraft.prompt_tokens + usageHumanize.prompt_tokens;
@@ -158,12 +103,12 @@ export async function generationPipeline(
       outputTokens,
       model: statsModel,
       costTextUsd,
-      costImageUsd: costImgUsd,
-      costTotalUsd,
+      costImageUsd: 0,
+      costTotalUsd: costTextUsd,
       date: new Date().toISOString().slice(0, 10),
     }).catch(() => {});
 
-    logInfo('Generation done', { headline: headline.slice(0, 50), costTotalUsd });
+    logInfo('Text generation done', { headline: headline.slice(0, 50), costTextUsd });
   } catch (error) {
     await setStatusError(task);
     throw error;

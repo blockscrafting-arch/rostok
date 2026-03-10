@@ -20,7 +20,7 @@ function escapeHtml(s: string): string {
 }
 
 export async function publishingPipeline(task: Task): Promise<void> {
-  if (task.status !== 'Одобрено') return;
+  if (task.status !== 'Одобрено на публикацию') return;
 
   const text = task.previewText?.trim();
   if (!text) {

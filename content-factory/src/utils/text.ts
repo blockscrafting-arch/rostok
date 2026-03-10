@@ -3,6 +3,21 @@
  */
 
 /**
+ * Убирает с первой строки артефакты: префикс «Заголовок:» / «{Заголовок}:», обрамление кавычками.
+ */
+export function cleanArticleFirstLine(text: string): string {
+  const lines = text.split(/\r?\n/);
+  if (lines.length === 0) return text;
+  let first = lines[0].trim();
+  first = first.replace(/^(\{Заголовок\}|Заголовок):\s*/i, '').trim();
+  if (first.length >= 2 && first.startsWith('"') && first.endsWith('"')) {
+    first = first.slice(1, -1).trim();
+  }
+  lines[0] = first;
+  return lines.join('\n');
+}
+
+/**
  * Обрезает текст до limit символов по последней границе предложения (точка + пробел).
  * Если подходящей точки нет — жёсткий срез на limit.
  */
