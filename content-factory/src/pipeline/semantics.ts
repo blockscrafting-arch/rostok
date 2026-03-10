@@ -43,18 +43,25 @@ export async function semanticsPipeline(task: Task, settings: Settings): Promise
         ),
       'Headlines'
     );
-    const headlinesCostUsd = totalCostUsd([usage]);
-    const costPerRow = items.length > 0 ? headlinesCostUsd / items.length : 0;
+    const validKwSet = new Set(kwStrings.map((k) => k.toLowerCase()));
+    const filteredItems = items.map((item) => {
+      const filtered = item.keywords.filter((k) => validKwSet.has(k.trim().toLowerCase()));
+      const keywords = filtered.length > 0 ? filtered : kwStrings.slice(0, 10);
+      return { ...item, keywords };
+    });
 
-    const first = items[0];
+    const headlinesCostUsd = totalCostUsd([usage]);
+    const costPerRow = filteredItems.length > 0 ? headlinesCostUsd / filteredItems.length : 0;
+
+    const first = filteredItems[0];
     await writeKeywords(task, first?.keywords ?? []);
     await writeHeadlines(task, first?.headline ? [first.headline] : []);
     await writeHeadlinesCost(task, costPerRow);
     await updateStatus(task, 'На согласовании');
-    if (items.length > 1) {
-      await insertTaskRows(task, items.slice(1), costPerRow);
+    if (filteredItems.length > 1) {
+      await insertTaskRows(task, filteredItems.slice(1), costPerRow);
     }
-    logInfo('Semantics done', { keyword: task.keyword, headlinesCount: items.length, headlinesCostUsd });
+    logInfo('Semantics done', { keyword: task.keyword, headlinesCount: filteredItems.length, headlinesCostUsd });
   } catch (error) {
     await setStatusError(task);
     throw error;

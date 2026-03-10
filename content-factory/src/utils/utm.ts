@@ -16,15 +16,18 @@ function slugifyTopic(topic: string): string {
 
 /**
  * По заголовку/теме подбираем раздел каталога и собираем UTM-ссылку.
- * template пример: "https://site.ru/catalog/{topic}?utm_source=dzen&utm_medium=article&utm_campaign={campaign}"
+ * template пример: "https://site.ru/catalog/{topic}?utm_source=dzen&utm_medium=article&utm_campaign={campaign}&utm_content={keyword}"
  * catalogMap: { "Розы": "https://site.ru/catalog/roses", ... }
+ * Плейсхолдеры: {topic}, {campaign} — slug заголовка; {keyword} — ключевое слово задачи (URL-кодируется).
  */
 export function buildUtmUrl(
   headline: string,
-  settings: Settings
+  settings: Settings,
+  keyword: string = ''
 ): string {
   const { catalogMap, utmTemplate } = settings;
   const topicSlug = slugifyTopic(headline);
+  const keywordEncoded = encodeURIComponent(keyword.trim());
 
   // Ищем первый ключ, который входит в заголовок (без учёта регистра)
   const headlineLower = headline.toLowerCase();
@@ -41,10 +44,11 @@ export function buildUtmUrl(
     baseUrl = Object.values(catalogMap)[0];
   }
 
-  // Подставляем {topic} и {campaign} в шаблон
+  // Подставляем {topic}, {campaign} и {keyword} в шаблон
   let url = utmTemplate
     .replace(/\{topic\}/g, topicSlug)
-    .replace(/\{campaign\}/g, topicSlug);
+    .replace(/\{campaign\}/g, topicSlug)
+    .replace(/\{keyword\}/g, keywordEncoded);
 
   // Если в шаблоне нет полного URL, префиксируем baseUrl
   if (url.startsWith('?')) {

@@ -60,6 +60,10 @@ export interface Settings {
   moderationEnabled: boolean;
   pollInterval: number;
   dailySummaryTime: string;
+  /** Время суток, после которого запускать генерацию (текст + картинка) для статуса «Согласовано». Например "05:00". */
+  generationTime: string;
+  /** Интервал между публикациями одобренных статей, минуты. */
+  publishIntervalMin: number;
   /** Модель для граундинга (поиск фактов). Пусто — из env. */
   groundingModel?: string;
   /** Модель для текста (черновик и очеловечивание). Пусто — из env. */

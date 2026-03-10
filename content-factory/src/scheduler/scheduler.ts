@@ -25,6 +25,15 @@ function isAfterSummaryTime(summaryTime: string): boolean {
   return nowM >= targetM;
 }
 
+/** Проверка: наступило ли заданное время суток (например "05:00"). */
+function isAfterTime(timeStr: string): boolean {
+  const [h, m] = timeStr.split(':').map((x) => parseInt(x, 10) || 0);
+  const now = new Date();
+  const nowM = now.getHours() * 60 + now.getMinutes();
+  const targetM = h * 60 + m;
+  return nowM >= targetM;
+}
+
 let isRunning = true;
 
 export function stopScheduler(): void {
@@ -34,6 +43,7 @@ export function stopScheduler(): void {
 export async function mainLoop(): Promise<void> {
   let publishedToday = 0;
   let lastDateKey = '';
+  let lastPublishedAt = 0;
   let dailySummarySentDate = '';
   const dailyErrors: string[] = [];
 
@@ -45,6 +55,7 @@ export async function mainLoop(): Promise<void> {
 
       if (today !== lastDateKey) {
         publishedToday = 0;
+        lastPublishedAt = 0;
         lastDateKey = today;
       }
 
@@ -59,7 +70,9 @@ export async function mainLoop(): Promise<void> {
         }
       }
 
+      const canRunGeneration = isAfterTime(settings.generationTime);
       for (const task of tasks.filter((t) => t.status === 'Согласовано')) {
+        if (!canRunGeneration) break;
         try {
           await generationPipeline(task, settings, { isRevision: false });
         } catch (e) {
@@ -97,11 +110,14 @@ export async function mainLoop(): Promise<void> {
 
       const approved = tasks.filter((t) => t.status === 'Одобрено');
       const limit = Math.max(0, settings.maxArticlesPerDay - publishedToday);
-      const toPublish = approved.slice(0, limit);
+      const intervalMs = settings.publishIntervalMin * 60_000;
+      const canPublishNext = limit > 0 && (lastPublishedAt === 0 || Date.now() - lastPublishedAt >= intervalMs);
+      const toPublish = canPublishNext ? approved.slice(0, 1) : [];
       for (const task of toPublish) {
         try {
           await publishingPipeline(task);
           publishedToday += 1;
+          lastPublishedAt = Date.now();
         } catch (e) {
           const { message: msg } = serializeError(e);
           dailyErrors.push(`Publish: ${task.headline ?? task.keyword} — ${msg}`);

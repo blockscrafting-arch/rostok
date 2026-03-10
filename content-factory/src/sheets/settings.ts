@@ -117,6 +117,8 @@ export async function readSettings(): Promise<Settings> {
     moderationEnabled,
     pollInterval: config.schedule.pollIntervalMs,
     dailySummaryTime: get('Время сводки', '21:00'),
+    generationTime: (get('Время генерации', '05:00') || '05:00').trim() || '05:00',
+    publishIntervalMin: Math.max(1, parseInt(get('Интервал публикации (мин)', '60'), 10) || 60),
     groundingModel: get('Модель граундинга', '') || undefined,
     textModel: get('Модель текста', '') || undefined,
     imageModel: get('Модель картинки', '') || undefined,

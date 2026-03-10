@@ -80,7 +80,7 @@ export async function generationPipeline(
     }
     const previewText = finalText.slice(0, 4000);
 
-    const utmUrl = buildUtmUrl(headline, settings);
+    const utmUrl = buildUtmUrl(headline, settings, task.keyword ?? '');
     const textUsages = [usageGround, usageDraft, usageHumanize];
 
     let imageUrl = '';

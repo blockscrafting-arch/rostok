@@ -19,6 +19,8 @@ function makeSettings(overrides: Partial<Settings> = {}): Settings {
     moderationEnabled: true,
     pollInterval: 60000,
     dailySummaryTime: '21:00',
+    generationTime: '05:00',
+    publishIntervalMin: 60,
     ...overrides,
   };
 }
@@ -63,5 +65,16 @@ describe('buildUtmUrl', () => {
     });
     const url = buildUtmUrl('Любой заголовок', settings);
     expect(url).toBe('?utm_source=dzen&utm_campaign=любой-заголовок');
+  });
+
+  it('подставляет {keyword} в utm_content из третьего аргумента', () => {
+    const settings = makeSettings({
+      catalogMap: {},
+      utmTemplate: '?utm_source=dzen&utm_medium=organic&utm_campaign=content_zavod&utm_content={keyword}',
+    });
+    const url = buildUtmUrl('Смета на ленивый розарий', settings, 'саженцы роз');
+    expect(url).toContain('utm_content=');
+    expect(url).toContain(encodeURIComponent('саженцы роз'));
+    expect(url).not.toContain('{keyword}');
   });
 });
