@@ -149,11 +149,13 @@ export async function generationPipeline(
       usageGround.prompt_tokens + usageDraft.prompt_tokens + usageHumanize.prompt_tokens;
     const outputTokens =
       usageGround.completion_tokens + usageDraft.completion_tokens + usageHumanize.completion_tokens;
+    const statsModel =
+      usageDraft.model || usageHumanize.model || usageGround.model || '—';
     await appendStatistics({
       headline: headline.slice(0, 200),
       inputTokens,
       outputTokens,
-      model: 'DeepSeek+Sonar',
+      model: statsModel,
       costTextUsd,
       costImageUsd: costImgUsd,
       costTotalUsd,

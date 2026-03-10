@@ -13,22 +13,26 @@ export async function humanize(
   textModelOverride?: string
 ): Promise<{ text: string; usage: TokenUsage }> {
   const model = textModelOverride?.trim() || config.openrouter.textModel;
+  const systemContent =
+    prompt3?.trim() ||
+    'Перепиши текст в стиле бренда, сохрани смысл. Строго до 4000 символов. UTM-ссылку в текст не вставляй.';
   let userContent = `Черновик статьи:
 ---
 ${draft}
 ---
 
 ДНК бренда и целевая аудитория:
-${dnaBrandText || 'Не указано.'}
-
-Перепиши в стиле бренда, сохрани смысл. Строго до 4000 символов. UTM-ссылку в текст не вставляй.`;
+${dnaBrandText || 'Не указано.'}`;
   if (editorComment) {
     userContent += `\n\nЗамечание редактора (обязательно учти при генерации): ${editorComment}`;
   }
 
   const res = await openrouter.chat.completions.create({
     model,
-    messages: [{ role: 'user', content: userContent }],
+    messages: [
+      { role: 'system', content: systemContent },
+      { role: 'user', content: userContent },
+    ],
     max_tokens: 2048,
   });
 
