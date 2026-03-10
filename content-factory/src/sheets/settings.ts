@@ -9,7 +9,29 @@ import type { Settings } from '../types';
 
 const SHEET_NAME = 'Настройки';
 
-/** Загрузка текста из Google Docs по URL. */
+type StructuralElement = {
+  paragraph?: { elements?: Array<{ textRun?: { content?: string } }> };
+  table?: {
+    tableRows?: Array<{
+      tableCells?: Array<{ content?: StructuralElement[] }>;
+    }>;
+  };
+};
+
+/** Извлечь текст из массива структурных элементов (параграфы). */
+function extractTextFromContent(elements: StructuralElement[] | undefined): string {
+  const parts: string[] = [];
+  for (const el of elements ?? []) {
+    if (el.paragraph?.elements) {
+      for (const run of el.paragraph.elements) {
+        if (run.textRun?.content) parts.push(run.textRun.content);
+      }
+    }
+  }
+  return parts.join('').trim();
+}
+
+/** Загрузка текста из Google Docs по URL (параграфы). */
 async function fetchDocContent(docUrl: string): Promise<string> {
   try {
     const match = docUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
@@ -21,7 +43,7 @@ async function fetchDocContent(docUrl: string): Promise<string> {
     });
     const docs = google.docs({ version: 'v1', auth });
     const res = await docs.documents.get({ documentId: docId });
-    const content = res.data.body?.content;
+    const content = res.data.body?.content as StructuralElement[] | undefined;
     if (!content) return '';
     const parts: string[] = [];
     for (const el of content) {
@@ -35,6 +57,55 @@ async function fetchDocContent(docUrl: string): Promise<string> {
   } catch (e) {
     const err = e instanceof Error ? e.message : String(e);
     logWarn('fetchDocContent error', { docUrl, error: err });
+    return '';
+  }
+}
+
+/** Загрузка справочника каталога: параграфы (строки "Раздел\tURL") + таблицы (колонки с названием и ссылкой). */
+async function fetchCatalogDocContent(docUrl: string): Promise<string> {
+  try {
+    const match = docUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (!match) return '';
+    const docId = match[1];
+    const auth = new google.auth.GoogleAuth({
+      keyFile: config.google.serviceAccountKey,
+      scopes: ['https://www.googleapis.com/auth/documents.readonly'],
+    });
+    const docs = google.docs({ version: 'v1', auth });
+    const res = await docs.documents.get({ documentId: docId });
+    const content = res.data.body?.content as StructuralElement[] | undefined;
+    if (!content) return '';
+
+    const lines: string[] = [];
+
+    for (const el of content) {
+      if (el.paragraph?.elements) {
+        const text = extractTextFromContent([el]);
+        if (text) lines.push(text);
+      }
+      if (el.table?.tableRows) {
+        for (const row of el.table.tableRows) {
+          const cells = (row.tableCells ?? []).map((cell) =>
+            extractTextFromContent(cell.content)
+          );
+          const urlIndex = cells.findIndex((c) => /^https?:\/\//i.test(c.trim()));
+          if (urlIndex >= 0) {
+            const url = cells[urlIndex].trim();
+            const nameCandidate =
+              urlIndex > 0
+                ? (cells[urlIndex - 1] ?? '').trim()
+                : (cells.find((c) => c.trim() && !/^https?:\/\//i.test(c.trim())) ?? '').trim();
+            const name = nameCandidate && !/^https?:\/\//i.test(nameCandidate) ? nameCandidate : '';
+            if (name && url) lines.push(`${name}\t${url}`);
+          }
+        }
+      }
+    }
+
+    return lines.join('\n');
+  } catch (e) {
+    const err = e instanceof Error ? e.message : String(e);
+    logWarn('fetchCatalogDocContent error', { docUrl, error: err });
     return '';
   }
 }
@@ -79,7 +150,7 @@ export async function readSettings(): Promise<Settings> {
 
   const [dnaBrandText, catalogRaw, referencePhotoRaw] = await Promise.all([
     dnaBrandUrl ? fetchDocContent(dnaBrandUrl) : Promise.resolve(''),
-    catalogDocUrl ? fetchDocContent(catalogDocUrl) : Promise.resolve(''),
+    catalogDocUrl ? fetchCatalogDocContent(catalogDocUrl) : Promise.resolve(''),
     referencePhotoDocUrl ? fetchDocContent(referencePhotoDocUrl) : Promise.resolve(''),
   ]);
 
