@@ -12,6 +12,7 @@ import { writeGenerationResult, updateStatus, setStatusError } from '../sheets/w
 import { appendStatistics } from '../sheets/statistics';
 import { withRetry } from '../utils/retry';
 import { logInfo } from '../utils/logger';
+import { truncateAtSentence } from '../utils/text';
 import type { Task } from '../types';
 import type { Settings } from '../types';
 import type { ArticleResult } from '../types';
@@ -78,7 +79,7 @@ export async function generationPipeline(
     if (finalText.length > 4000) {
       logInfo('Text exceeded 4000 chars, truncating', { len: finalText.length });
     }
-    const previewText = finalText.slice(0, 4000);
+    const previewText = truncateAtSentence(finalText, 4000);
 
     const utmUrl = buildUtmUrl(headline, settings, task.keyword ?? '');
     const textUsages = [usageGround, usageDraft, usageHumanize];

@@ -3,6 +3,7 @@
  */
 import { openrouter } from './client';
 import { config } from '../config';
+import { truncateAtSentence } from '../utils/text';
 import type { TokenUsage } from '../types';
 
 /**
@@ -25,16 +26,18 @@ export async function generateDraft(
 Проверенные факты из веб-источников:
 ${facts}
 
-Обязательно: начни статью с заголовка (указан выше). В конце статьи добавь призыв перейти на сайт и оформить заказ.
+ВАЖНО: первой строкой статьи выведи БУКВАЛЬНО, без каких-либо изменений этот заголовок:
+"${headline}"
+Не перефразируй, не сокращай, не добавляй слова. В конце статьи добавь призыв перейти на сайт и оформить заказ.
 
-Напиши SEO-статью до 4000 символов, опираясь на эти факты. Структурируй статью с 3–5 логичными подзаголовками второго уровня (##), которые вытекают из содержания.`;
+Напиши SEO-статью СТРОГО до 4000 символов, опираясь на эти факты. Статья должна быть ЗАВЕРШЁННОЙ. Следи за длиной: когда приближаешься к 4000 символам — заканчивай мысль и пиши призыв к действию. Структурируй статью с 3–5 логичными подзаголовками второго уровня (##), которые вытекают из содержания.`;
   if (editorComment) {
     userContent += `\n\nЗамечание редактора (обязательно учти при генерации): ${editorComment}`;
   }
 
   const systemContent = prompt2
     ? prompt2.replace(/\{role\}/g, role)
-    : `Ты — ${role}. Пиши экспертную статью для блога питомника. Используй только проверенные факты из блока выше. До 4000 символов.`;
+    : `Ты — ${role}. Пиши экспертную статью для блога питомника. Используй только проверенные факты из блока выше. СТРОГО до 4000 символов.`;
 
   const res = await openrouter.chat.completions.create({
     model,
@@ -42,10 +45,10 @@ ${facts}
       { role: 'system', content: systemContent },
       { role: 'user', content: userContent },
     ],
-    max_tokens: 2048,
+    max_tokens: 1500,
   });
 
-  const text = (res.choices[0]?.message?.content ?? '').slice(0, 4000);
+  const text = truncateAtSentence(res.choices[0]?.message?.content ?? '', 4000);
   const u = res.usage as { total_cost?: number; cost?: number } | undefined;
   const usage: TokenUsage = {
     prompt_tokens: res.usage?.prompt_tokens ?? 0,
