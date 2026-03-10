@@ -185,7 +185,7 @@ export async function writeTextResult(
   });
 }
 
-/** Записать результат генерации (превью, источники, картинка, UTM, стоимость) и установить статус. */
+/** Записать результат полной генерации (текст + картинка). Сейчас пайплайн разделён: текст → writeTextResult, картинка → writeRegeneratedImage. Функция оставлена для совместимости и возможного сценария «всё за один вызов». */
 export async function writeGenerationResult(
   task: Task,
   result: ArticleResult,
