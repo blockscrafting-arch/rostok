@@ -123,27 +123,30 @@ export async function insertTaskRows(
   const costImage = 0;
   const costTotal = headlinesCostPerRow > 0 ? headlinesCostPerRow : '';
 
-  const values = items.map((item) => [
-    task.keyword,
-    limitStr,
-    item.headline.slice(0, MAX_ONE_HEADLINE),
-    item.keywords.join(', ').slice(0, MAX_CELL_KEYWORDS),
-    status,
-    '', '', '', '', '', // F..J
-    costText,
-    costImage,
-    costTotal,
-    '', '', // N, O
-    0, // P = Символов (заполнится при генерации текста)
-    '', // Q = Запланировано
-  ]);
+  const values = items.map((item, i) => {
+    const sheetRow = startRow0 + 1 + i;
+    return [
+      task.keyword,
+      limitStr,
+      item.headline.slice(0, MAX_ONE_HEADLINE),
+      item.keywords.join(', ').slice(0, MAX_CELL_KEYWORDS),
+      status,
+      '', '', '', '', '', // F..J
+      costText,
+      costImage,
+      costTotal,
+      '', '', // N, O
+      `=IF(F${sheetRow}="";0;LEN(F${sheetRow}))`, // P = символы (0 если F пусто)
+      '', // Q = Запланировано
+    ];
+  });
 
-  // 0-based startRow0 → 1-based sheet row = startRow0 + 1. Колонки A–Q.
+  // 0-based startRow0 → 1-based sheet row = startRow0 + 1. Колонки A–Q. USER_ENTERED чтобы P распозналась как формула.
   const range = `'${SHEET_NAME}'!A${startRow0 + 1}:Q${startRow0 + numRows}`;
   await sheets.spreadsheets.values.update({
     spreadsheetId,
     range,
-    valueInputOption: 'RAW',
+    valueInputOption: 'USER_ENTERED',
     requestBody: { values },
   });
 }
@@ -156,14 +159,13 @@ export interface TextOnlyResult {
   costTextUsd: number;
 }
 
-/** Записать результат генерации текста (F, G, I, K, L=0, M, N, P, E) и статус «Текст готов, ждём картинку». */
+/** Записать результат генерации текста (F, G, I, K, L=0, M, N, E) и статус «Текст готов, ждём картинку». P не трогаем — там формула =IF(Fn="";0;LEN(Fn)). */
 export async function writeTextResult(
   task: Task,
   result: TextOnlyResult
 ): Promise<void> {
   const row = task.rowIndex;
   const preview = (result.previewText ?? '').slice(0, MAX_CELL_PREVIEW);
-  const charCount = (result.previewText ?? '').length;
   const sources = (result.sources ?? '').slice(0, MAX_CELL_SOURCES);
   const utmUrl = (result.utmUrl ?? '').slice(0, MAX_CELL_URL);
   const costTextUsd = result.costTextUsd;
@@ -177,7 +179,6 @@ export async function writeTextResult(
     { range: `'${SHEET_NAME}'!L${row}`, values: [[costImageUsd]] },
     { range: `'${SHEET_NAME}'!M${row}`, values: [[costTotalUsd]] },
     { range: `'${SHEET_NAME}'!N${row}`, values: [[new Date().toISOString().slice(0, 10)]] },
-    { range: `'${SHEET_NAME}'!P${row}`, values: [[charCount]] },
     { range: `'${SHEET_NAME}'!E${row}`, values: [['Текст готов, ждём картинку']] },
   ];
   await sheets.spreadsheets.values.batchUpdate({
@@ -194,7 +195,6 @@ export async function writeGenerationResult(
 ): Promise<void> {
   const row = task.rowIndex;
   const preview = (result.previewText ?? '').slice(0, MAX_CELL_PREVIEW);
-  const charCount = (result.previewText ?? '').length;
   const sources = (result.sources ?? '').slice(0, MAX_CELL_SOURCES);
   const imageUrl = (result.imageUrl ?? '').slice(0, MAX_CELL_URL);
   const utmUrl = (result.utmUrl ?? '').slice(0, MAX_CELL_URL);
@@ -212,7 +212,6 @@ export async function writeGenerationResult(
     { range: `'${SHEET_NAME}'!L${row}`, values: [[costImageUsd]] },
     { range: `'${SHEET_NAME}'!M${row}`, values: [[costTotalUsd]] },
     { range: `'${SHEET_NAME}'!N${row}`, values: [[new Date().toISOString().slice(0, 10)]] },
-    { range: `'${SHEET_NAME}'!P${row}`, values: [[charCount]] },
     { range: `'${SHEET_NAME}'!E${row}`, values: [[newStatus]] },
   ];
   await sheets.spreadsheets.values.batchUpdate({
