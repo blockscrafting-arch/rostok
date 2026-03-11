@@ -57,7 +57,8 @@ function setupContentFactory() {
       'Опубликовано', 
       'Ошибка', 
       'На доработку',
-      'Перегенерировать картинку'
+      'Перегенерировать картинку',
+      'Перегенерировать текст'
     ], true)
     .build();
   sheetTasks.getRange(2, 5, 999, 5).setDataValidation(statusRule);

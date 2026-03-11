@@ -172,6 +172,21 @@ export async function mainLoop(): Promise<void> {
         }
       }
 
+      for (const task of tasks.filter((t) => t.status === 'Перегенерировать текст')) {
+        try {
+          await generationPipeline(task, settings, {
+            isRevision: true,
+            editorComment: task.comment ?? undefined,
+            keepImage: true,
+          });
+        } catch (e) {
+          const { message: msg } = serializeError(e);
+          dailyErrors.push(`Regenerate text: ${task.headline ?? task.keyword} — ${msg}`);
+          logInfo('Regenerate text pipeline error', { task: task.headline, error: e });
+          logToSheet('RegenerateText', 'error', `${task.headline ?? task.keyword}: ${msg}`.slice(0, 500)).catch(() => {});
+        }
+      }
+
       for (const task of tasks.filter((t) => t.status === 'Перегенерировать картинку')) {
         try {
           await regenerateImagePipeline(task, settings);

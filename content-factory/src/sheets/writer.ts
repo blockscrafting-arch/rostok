@@ -159,27 +159,35 @@ export interface TextOnlyResult {
   costTextUsd: number;
 }
 
-/** Записать результат генерации текста (F, G, I, K, L=0, M, N, E) и статус «Текст готов, ждём картинку». P не трогаем — там формула =IF(Fn="";0;LEN(Fn)). */
+/** Опции записи результата текста: статус после (по умолчанию «Текст готов, ждём картинку»). При «Готово к проверке» картинку не трогаем, L не перезаписываем. */
+export interface WriteTextResultOptions {
+  statusAfter?: TaskStatus;
+}
+
+/** Записать результат генерации текста (F, G, I, K, L=0 или не трогаем, M, N, E). P не трогаем — там формула. */
 export async function writeTextResult(
   task: Task,
-  result: TextOnlyResult
+  result: TextOnlyResult,
+  options: WriteTextResultOptions = {}
 ): Promise<void> {
+  const { statusAfter = 'Текст готов, ждём картинку' } = options;
   const row = task.rowIndex;
   const preview = (result.previewText ?? '').slice(0, MAX_CELL_PREVIEW);
   const sources = (result.sources ?? '').slice(0, MAX_CELL_SOURCES);
   const utmUrl = (result.utmUrl ?? '').slice(0, MAX_CELL_URL);
   const costTextUsd = result.costTextUsd;
-  const costImageUsd = 0;
-  const costTotalUsd = costTextUsd;
+  const keepImage = statusAfter === 'Готово к проверке';
+  const costImageUsd = keepImage ? parseFloat(String(task.costImage ?? '')) || 0 : 0;
+  const costTotalUsd = costTextUsd + costImageUsd;
   const data = [
     { range: `'${SHEET_NAME}'!F${row}`, values: [[preview]] },
     { range: `'${SHEET_NAME}'!G${row}`, values: [[sources]] },
     { range: `'${SHEET_NAME}'!I${row}`, values: [[utmUrl]] },
     { range: `'${SHEET_NAME}'!K${row}`, values: [[costTextUsd]] },
-    { range: `'${SHEET_NAME}'!L${row}`, values: [[costImageUsd]] },
+    ...(keepImage ? [] : [{ range: `'${SHEET_NAME}'!L${row}`, values: [[0]] }]),
     { range: `'${SHEET_NAME}'!M${row}`, values: [[costTotalUsd]] },
     { range: `'${SHEET_NAME}'!N${row}`, values: [[new Date().toISOString().slice(0, 10)]] },
-    { range: `'${SHEET_NAME}'!E${row}`, values: [['Текст готов, ждём картинку']] },
+    { range: `'${SHEET_NAME}'!E${row}`, values: [[statusAfter]] },
   ];
   await sheets.spreadsheets.values.batchUpdate({
     spreadsheetId,

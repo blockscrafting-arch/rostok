@@ -18,6 +18,8 @@ import type { Settings } from '../types';
 export interface GenerationOptions {
   isRevision?: boolean;
   editorComment?: string;
+  /** Не перезапускать генерацию картинки: после текста ставить «Готово к проверке», картинку не трогать. */
+  keepImage?: boolean;
 }
 
 const MAX_HEADLINE_LENGTH = 500;
@@ -28,9 +30,15 @@ export async function generationPipeline(
   settings: Settings,
   options: GenerationOptions = {}
 ): Promise<void> {
-  const { isRevision = false, editorComment } = options;
+  const { isRevision = false, editorComment, keepImage = false } = options;
   const headline = (task.headline?.trim() ?? '').slice(0, MAX_HEADLINE_LENGTH);
-  if (!headline || (task.status !== 'Согласован заголовок' && task.status !== 'На доработку')) return;
+  if (
+    !headline ||
+    (task.status !== 'Согласован заголовок' &&
+      task.status !== 'На доработку' &&
+      task.status !== 'Перегенерировать текст')
+  )
+    return;
 
   const comment = ((editorComment ?? task.comment ?? '') as string).slice(0, MAX_COMMENT_LENGTH) || undefined;
 
@@ -84,12 +92,16 @@ export async function generationPipeline(
     const textUsages = [usageGround, usageDraft, usageHumanize];
     const { costTextUsd } = splitCostUsd(textUsages, 0);
 
-    await writeTextResult(task, {
-      previewText,
-      sources: citations.join(', '),
-      utmUrl,
-      costTextUsd,
-    });
+    await writeTextResult(
+      task,
+      {
+        previewText,
+        sources: citations.join(', '),
+        utmUrl,
+        costTextUsd,
+      },
+      { statusAfter: keepImage ? 'Готово к проверке' : 'Текст готов, ждём картинку' }
+    );
 
     const inputTokens =
       usageGround.prompt_tokens + usageDraft.prompt_tokens + usageHumanize.prompt_tokens;
