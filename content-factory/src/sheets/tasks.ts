@@ -6,8 +6,8 @@ import type { Task, TaskStatus, FrequencyLimit } from '../types';
 
 const SHEET_NAME = 'Задания';
 
-/** Парсит ячейку лимита частотности: "300-500" → { min: 300, max: 500 }, "300" → 300. */
-function parseFrequencyLimit(v: unknown): FrequencyLimit {
+/** Парсит ячейку лимита частотности: "300-500" → { min: 300, max: 500 }, "300" → 300. Экспорт для тестов. */
+export function parseFrequencyLimit(v: unknown): FrequencyLimit {
   const s = String(v ?? '').trim();
   const range = s.match(/^\s*(\d+)\s*-\s*(\d+)\s*$/);
   if (range) {
@@ -52,7 +52,8 @@ const VALID_STATUSES: TaskStatus[] = [
   'Перегенерировать картинку',
 ];
 
-function parseRow(row: unknown[], sheetRowIndex: number): Task | null {
+/** Парсит одну строку листа в Task. Экспорт для тестов. */
+export function parseRow(row: unknown[], sheetRowIndex: number): Task | null {
   const keyword = String(row[COL.keyword] ?? '').trim();
   const statusRaw = String(row[COL.status] ?? '').trim();
   if (!keyword) return null;

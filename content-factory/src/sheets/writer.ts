@@ -17,8 +17,8 @@ const MAX_CELL_HEADLINES = 32_000;
 const MAX_CELL_KEYWORDS = 32_000;
 const MAX_ONE_HEADLINE = 500;
 
-/** Колонки листа без «Площадка»: A=Ключевое слово, B=Лимит, C=Заголовок, D=Ключевые запросы, E=Статус, F=Превью, G=Источники, H=Картинка, I=UTM, J=Пост, K=стоимость текста, L=картинки, M=итого, N=дата, O=Комментарий. */
-function colLetter(col1Based: number): string {
+/** Колонки листа без «Площадка»: A=Ключевое слово, B=Лимит, C=Заголовок, D=Ключевые запросы, E=Статус, F=Превью, G=Источники, H=Картинка, I=UTM, J=Пост, K=стоимость текста, L=картинки, M=итого, N=дата, O=Комментарий. Экспорт для тестов. */
+export function colLetter(col1Based: number): string {
   let s = '';
   let n = col1Based - 1;
   while (n >= 0) {
@@ -74,8 +74,8 @@ export async function writeHeadlinesCost(task: Task, costPerRow: number): Promis
   });
 }
 
-/** Сериализовать лимит частотности для записи в ячейку. */
-function formatFrequencyLimit(limit: FrequencyLimit): string {
+/** Сериализовать лимит частотности для записи в ячейку. Экспорт для тестов. */
+export function formatFrequencyLimit(limit: FrequencyLimit): string {
   if (typeof limit === 'number') return String(limit);
   return `${limit.min}-${limit.max}`;
 }
@@ -261,4 +261,32 @@ export async function writePublished(task: Task, postUrl: string): Promise<void>
 /** Установить статус «Ошибка». */
 export async function setStatusError(task: Task): Promise<void> {
   await updateCell(task.rowIndex, 5, 'Ошибка');
+}
+
+/**
+ * Скрыть указанные строки листа «Задания» (данные не удаляются).
+ * @param rowIndices — номера строк в таблице (1-based: 2 = первая строка данных).
+ */
+export async function hideTaskRows(rowIndices: number[]): Promise<void> {
+  const unique = [...new Set(rowIndices)].filter((r) => r >= 2);
+  if (unique.length === 0) return;
+  const sheetId = await getSheetId();
+  const requests = unique
+    .map((rowIndex1Based) => ({
+      updateDimensionProperties: {
+        range: {
+          sheetId,
+          dimension: 'ROWS',
+          startIndex: rowIndex1Based - 1,
+          endIndex: rowIndex1Based,
+        },
+        properties: { hiddenByUser: true },
+        fields: 'hiddenByUser',
+      },
+    }));
+  if (requests.length === 0) return;
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: { requests },
+  });
 }

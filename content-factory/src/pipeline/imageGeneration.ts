@@ -7,6 +7,7 @@ import { uploadImage } from '../storage/s3';
 import { writeRegeneratedImage, setStatusError } from '../sheets/writer';
 import { withRetry } from '../utils/retry';
 import { logInfo } from '../utils/logger';
+import { composeWithLogo } from '../utils/imageOverlay';
 import type { Task } from '../types';
 import type { Settings } from '../types';
 
@@ -49,19 +50,30 @@ export async function imageGenerationPipeline(task: Task, settings: Settings): P
 
     const rawImage = imgResult.imageUrl;
     if (rawImage) {
+      let buf: Buffer;
       if (rawImage.startsWith('data:image/')) {
         const base64Data = rawImage.replace(/^data:image\/\w+;base64,/, '');
-        const buf = Buffer.from(base64Data, 'base64');
-        const key = `article-${task.rowIndex}-${Date.now()}.png`;
-        imageUrl = await withRetry(() => uploadImage(buf, key), 'S3');
+        buf = Buffer.from(base64Data, 'base64');
       } else if (rawImage.startsWith('http')) {
         const resp = await fetch(rawImage);
-        if (resp.ok) {
-          const buf = Buffer.from(await resp.arrayBuffer());
-          const key = `article-${task.rowIndex}-${Date.now()}.png`;
-          imageUrl = await withRetry(() => uploadImage(buf, key), 'S3');
-        }
+        if (resp.ok) buf = Buffer.from(await resp.arrayBuffer());
+        else buf = Buffer.alloc(0);
+      } else {
+        buf = Buffer.alloc(0);
       }
+      if (buf.length > 0) {
+        if (settings.logoUrl?.trim()) {
+          const withLogo = await composeWithLogo(buf, settings.logoUrl.trim());
+          if (withLogo) buf = withLogo;
+        }
+        const key = `article-${task.rowIndex}-${Date.now()}.png`;
+        imageUrl = await withRetry(() => uploadImage(buf, key), 'S3');
+      }
+    }
+
+    if (!imageUrl || !imageUrl.trim()) {
+      await setStatusError(task);
+      throw new Error('Модель не вернула изображение или загрузка в S3 не удалась');
     }
 
     const nextStatus = settings.moderationEnabled ? 'Готово к проверке' : 'Одобрено на публикацию';

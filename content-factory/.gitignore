@@ -5,3 +5,6 @@ secrets/
 keys/
 *.log
 logs/
+
+# Все .md не коммитим
+*.md

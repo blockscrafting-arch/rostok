@@ -111,9 +111,18 @@ async function fetchCatalogDocContent(docUrl: string): Promise<string> {
 }
 
 /**
- * Парсинг справочника каталога: строки вида "Раздел\tURL" или "Раздел | URL".
+ * Парсинг режима генерации картинки из значения ячейки. "Сразу" → immediate, иначе → scheduled. Экспорт для тестов.
  */
-function parseCatalogMap(text: string): Record<string, string> {
+export function parseImageGenerationMode(value: string): 'immediate' | 'scheduled' {
+  const v = String(value ?? '').trim().toLowerCase();
+  if (v === 'сразу' || v === 'immediate' || v === '1') return 'immediate';
+  return 'scheduled';
+}
+
+/**
+ * Парсинг справочника каталога: строки вида "Раздел\tURL" или "Раздел | URL". Экспорт для тестов.
+ */
+export function parseCatalogMap(text: string): Record<string, string> {
   const map: Record<string, string> = {};
   const lines = text.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
   for (const line of lines) {
@@ -160,10 +169,6 @@ export async function readSettings(): Promise<Settings> {
   if (catalogDocUrl && !catalogRaw.trim()) {
     logWarn('Справочник каталога: документ пуст или не загружен', { url: catalogDocUrl });
   }
-  if (referencePhotoDocUrl && !referencePhotoRaw.trim()) {
-    logWarn('Справочник фото: документ пуст или не загружен', { url: referencePhotoDocUrl });
-  }
-
   const catalogMap = parseCatalogMap(catalogRaw);
   const referencePhotoMap = parseCatalogMap(referencePhotoRaw);
 
@@ -189,6 +194,11 @@ export async function readSettings(): Promise<Settings> {
     pollInterval: config.schedule.pollIntervalMs,
     dailySummaryTime: get('Время сводки', '21:00'),
     generationTime: (get('Время генерации', '05:00') || '05:00').trim() || '05:00',
+    imageGenerationMode: parseImageGenerationMode(get('Режим генерации картинки', 'По времени')),
+    logoUrl: (() => {
+      const url = get('URL логотипа', '').trim();
+      return url && /^https?:\/\//i.test(url) ? url : undefined;
+    })(),
     publishIntervalMin: Math.max(1, parseInt(get('Интервал публикации (мин)', '60'), 10) || 60),
     groundingModel: get('Модель граундинга', '') || undefined,
     textModel: get('Модель текста', '') || undefined,

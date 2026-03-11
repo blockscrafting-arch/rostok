@@ -82,8 +82,17 @@ export async function mainLoop(): Promise<void> {
         }
       }
 
-      const canRunImageGeneration = isAfterTime(settings.generationTime);
-      for (const task of tasks.filter((t) => t.status === 'Текст готов, ждём картинку')) {
+      const imagePending = tasks.filter((t) => t.status === 'Текст готов, ждём картинку');
+      const isScheduled = settings.imageGenerationMode === 'scheduled';
+      const canRunImageGeneration = !isScheduled || isAfterTime(settings.generationTime);
+      if (imagePending.length > 0 && !canRunImageGeneration) {
+        logInfo('Image generation skipped (scheduled, before time)', {
+          mode: 'scheduled',
+          generationTime: settings.generationTime,
+          pendingCount: imagePending.length,
+        });
+      }
+      for (const task of imagePending) {
         if (!canRunImageGeneration) break;
         try {
           await imageGenerationPipeline(task, settings);

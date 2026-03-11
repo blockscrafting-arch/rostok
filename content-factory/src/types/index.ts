@@ -61,8 +61,12 @@ export interface Settings {
   moderationEnabled: boolean;
   pollInterval: number;
   dailySummaryTime: string;
-  /** Время суток, после которого запускать генерацию картинки для статуса «Текст готов, ждём картинку». Например "05:00". */
+  /** Время суток, после которого запускать генерацию картинки для статуса «Текст готов, ждём картинку». Используется только при imageGenerationMode === 'scheduled'. */
   generationTime: string;
+  /** Режим генерации картинки: сразу после текста или по времени (generationTime). */
+  imageGenerationMode: 'immediate' | 'scheduled';
+  /** URL логотипа для наложения на картинку (опционально). */
+  logoUrl?: string;
   /** Интервал между публикациями одобренных статей, минуты. */
   publishIntervalMin: number;
   /** Модель для граундинга (поиск фактов). Пусто — из env. */
