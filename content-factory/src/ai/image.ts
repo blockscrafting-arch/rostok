@@ -5,6 +5,7 @@
  */
 import { openrouter } from './client';
 import { config } from '../config';
+import { logWarn } from '../utils/logger';
 import type { TokenUsage } from '../types';
 import type { ChatCompletionContentPart } from 'openai/resources/chat/completions';
 
@@ -108,6 +109,27 @@ export async function generatePlantImage(
         }
       }
     }
+  }
+
+  if (!imageUrl) {
+    const content = msg?.content;
+    const contentPreview =
+      typeof content === 'string'
+        ? content.slice(0, 300)
+        : Array.isArray(content)
+          ? content.map((p: unknown) => (p && typeof p === 'object' && 'type' in p ? (p as { type: string }).type : typeof p))
+          : undefined;
+    const msgObj = msg && typeof msg === 'object' ? msg as Record<string, unknown> : null;
+    logWarn('Image API: no image in response, logging structure', {
+      model,
+      hasMessage: !!msg,
+      messageKeys: msgObj ? Object.keys(msgObj) : [],
+      hasImages: !!(msg as { images?: unknown[] })?.images,
+      imagesLength: Array.isArray((msg as { images?: unknown[] })?.images) ? (msg as { images?: unknown[] }).images!.length : 0,
+      contentType: typeof content,
+      contentPreview,
+      choiceFinishReason: res.choices[0]?.finish_reason,
+    });
   }
 
   const u = res.usage as { total_cost?: number; cost?: number } | undefined;
