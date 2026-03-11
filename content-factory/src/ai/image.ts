@@ -6,6 +6,7 @@
 import { openrouter } from './client';
 import { config } from '../config';
 import { logWarn } from '../utils/logger';
+import { convertDriveUrlToDirectDownload } from '../utils/url';
 import type { TokenUsage } from '../types';
 import type { ChatCompletionContentPart } from 'openai/resources/chat/completions';
 
@@ -28,7 +29,8 @@ export interface ImageGenerationOptions {
 
 /** Скачать картинку по URL и вернуть как data URL (base64). */
 async function fetchImageAsDataUrl(url: string): Promise<string> {
-  const resp = await fetch(url);
+  const directUrl = convertDriveUrlToDirectDownload(url);
+  const resp = await fetch(directUrl);
   if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status}`);
   const buf = Buffer.from(await resp.arrayBuffer());
   const base64 = buf.toString('base64');

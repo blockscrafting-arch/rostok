@@ -3,6 +3,7 @@
  */
 import sharp from 'sharp';
 import { logWarn } from './logger';
+import { convertDriveUrlToDirectDownload } from './url';
 
 const LOGO_MAX_FRACTION = 0.2; // логотип не более 20% от меньшей стороны основы
 const PADDING_PX = 16;
@@ -11,7 +12,8 @@ const PADDING_PX = 16;
  * Скачать изображение по URL в буфер.
  */
 async function fetchImageBuffer(url: string): Promise<Buffer> {
-  const resp = await fetch(url);
+  const directUrl = convertDriveUrlToDirectDownload(url);
+  const resp = await fetch(directUrl);
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   return Buffer.from(await resp.arrayBuffer());
 }
