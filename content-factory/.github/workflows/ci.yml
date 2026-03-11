@@ -30,4 +30,11 @@ jobs:
         run: npm run build
 
       - name: Test
+        env:
+          GOOGLE_SERVICE_ACCOUNT_KEY: .github/ci-dummy-key.json
+          SPREADSHEET_ID: ci-dummy
+          OPENROUTER_API_KEY: ci-dummy
+          TELEGRAM_BOT_TOKEN: ci-dummy
+          TELEGRAM_CHANNEL_ID: ci-dummy
+          TELEGRAM_NOTIFY_CHAT_ID: ci-dummy
         run: npm run test:run
