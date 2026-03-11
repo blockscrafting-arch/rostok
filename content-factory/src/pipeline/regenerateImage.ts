@@ -38,6 +38,12 @@ export async function regenerateImagePipeline(task: Task, settings: Settings): P
     promptImageWithReference: settings.promptImageWithReference,
     imageModel: settings.imageModel,
   };
+  logInfo('RegenerateImage pipeline: calling API', {
+    rowIndex: task.rowIndex,
+    headline: headline.slice(0, 50),
+    model: imageOptions.imageModel || '(from config)',
+    hasReferencePhoto: !!referencePhotoUrl,
+  });
   try {
     const imgResult = await withRetry(
       () => generatePlantImage(headline, referencePhotoUrl || undefined, imageOptions),
@@ -100,7 +106,7 @@ export async function regenerateImagePipeline(task: Task, settings: Settings): P
     }
 
     if (!imageUrl || !imageUrl.trim()) {
-      logWarn('RegenerateImage pipeline: failed (no imageUrl)', {
+      logWarn('RegenerateImage pipeline: failed (no imageUrl). See "Image API: no image in response" above for response structure.', {
         rowIndex: task.rowIndex,
         headline: headline.slice(0, 50),
         rawImageType: rawImageType ?? 'empty',

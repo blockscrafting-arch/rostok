@@ -5,7 +5,7 @@
  */
 import { openrouter } from './client';
 import { config } from '../config';
-import { logWarn } from '../utils/logger';
+import { logInfo, logWarn } from '../utils/logger';
 import { convertDriveUrlToDirectDownload } from '../utils/url';
 import type { TokenUsage } from '../types';
 import type { ChatCompletionContentPart } from 'openai/resources/chat/completions';
@@ -74,6 +74,14 @@ export async function generatePlantImage(
   }
 
   const model = options.imageModel?.trim() || config.openrouter.imageModel;
+  const promptLen = typeof messageContent === 'string' ? messageContent.length : messageContent.reduce((n, p) => n + (typeof (p as { text?: string }).text === 'string' ? (p as { text: string }).text.length : 0), 0);
+  logInfo('Image API: request', {
+    model,
+    hasReferenceImage: !!referenceImageUrl,
+    promptLength: promptLen,
+    headlinePreview: plantNameOrHeadline.slice(0, 60),
+  });
+
   const res = await openrouter.chat.completions.create({
     model,
     messages: [{ role: 'user', content: messageContent }],
@@ -82,7 +90,20 @@ export async function generatePlantImage(
     modalities: ['image'] as unknown as Array<'text' | 'audio'>,
   });
 
-  const msg = res.choices[0]?.message as
+  const choice0 = res.choices?.[0];
+  const resAny = res as Record<string, unknown>;
+  logInfo('Image API: response summary', {
+    model,
+    choicesLength: res.choices?.length ?? 0,
+    choice0Keys: choice0 && typeof choice0 === 'object' ? Object.keys(choice0) : [],
+    messageKeys: choice0?.message && typeof choice0.message === 'object' ? Object.keys(choice0.message as object) : [],
+    responseTopKeys: Object.keys(resAny),
+    hasError: 'error' in resAny && resAny.error != null,
+  });
+  if (resAny.error != null) {
+    logWarn('Image API: response contains error field', { error: resAny.error });
+  }
+  const msg = choice0?.message as
     | { content?: string | unknown[]; images?: Array<{ image_url?: { url?: string } }> }
     | undefined;
   let imageUrl = '';
@@ -121,16 +142,36 @@ export async function generatePlantImage(
         : Array.isArray(content)
           ? content.map((p: unknown) => (p && typeof p === 'object' && 'type' in p ? (p as { type: string }).type : typeof p))
           : undefined;
-    const msgObj = msg && typeof msg === 'object' ? msg as Record<string, unknown> : null;
-    logWarn('Image API: no image in response, logging structure', {
+    const msgObj = msg && typeof msg === 'object' ? (msg as Record<string, unknown>) : null;
+    /** Сериализация для лога без огромных base64. */
+    const safeForLog = (obj: unknown, maxLen: number): unknown => {
+      if (obj == null) return obj;
+      if (typeof obj === 'string') {
+        if (obj.startsWith('data:image/') || obj.startsWith('data:application/'))
+          return `[BASE64, ${obj.length} chars]`;
+        return obj.length > maxLen ? obj.slice(0, maxLen) + '...' : obj;
+      }
+      if (Array.isArray(obj)) return obj.map((x) => safeForLog(x, maxLen));
+      if (typeof obj === 'object') {
+        const out: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(obj)) out[k] = safeForLog(v, maxLen);
+        return out;
+      }
+      return obj;
+    };
+    logWarn('Image API: no image in response, full message structure', {
       model,
-      hasMessage: !!msg,
-      messageKeys: msgObj ? Object.keys(msgObj) : [],
-      hasImages: !!(msg as { images?: unknown[] })?.images,
-      imagesLength: Array.isArray((msg as { images?: unknown[] })?.images) ? (msg as { images?: unknown[] }).images!.length : 0,
-      contentType: typeof content,
-      contentPreview,
       choiceFinishReason: res.choices[0]?.finish_reason,
+      messageKeys: msgObj ? Object.keys(msgObj) : [],
+      message: safeForLog(msg, 500),
+      contentPreview,
+      responseError: (res as Record<string, unknown>).error ?? undefined,
+    });
+  } else {
+    logInfo('Image API: image found', {
+      model,
+      source: msg?.images?.length ? 'images' : 'content',
+      imageLength: imageUrl.length,
     });
   }
 
