@@ -11,6 +11,7 @@ module.exports = {
       max_memory_restart: '500M',
       env: {
         NODE_ENV: 'production',
+        TZ: 'Europe/Moscow',
       },
       log_date_format: 'YYYY-MM-DD HH:mm:ss',
       error_file: './logs/error.log',

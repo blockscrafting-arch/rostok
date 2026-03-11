@@ -19,7 +19,7 @@ export function parseFrequencyLimit(v: unknown): FrequencyLimit {
   return Number.isNaN(n) || n < 0 ? 300 : n;
 }
 
-/** Индексы колонок (0-based). Без колонки «Площадка»: A=Ключевое слово, B=Лимит частотности, ... O=Комментарий. */
+/** Индексы колонок (0-based). A=Ключевое слово, ... O=Комментарий, P=Символов, Q=Запланировано. */
 const COL = {
   keyword: 0,
   frequencyLimit: 1,
@@ -36,6 +36,7 @@ const COL = {
   costTotal: 12,
   date: 13,
   comment: 14,
+  scheduledAt: 16,
 } as const;
 
 const VALID_STATUSES: TaskStatus[] = [
@@ -83,6 +84,7 @@ export function parseRow(row: unknown[], sheetRowIndex: number): Task | null {
     costTotal: row[COL.costTotal] != null ? String(row[COL.costTotal]).trim() : null,
     date: row[COL.date] != null ? String(row[COL.date]).trim() : null,
     comment: String(row[COL.comment] ?? '').trim() || null,
+    scheduledAt: row[COL.scheduledAt] != null ? String(row[COL.scheduledAt]).trim() || null : null,
   };
 }
 
@@ -93,7 +95,7 @@ export function parseRow(row: unknown[], sheetRowIndex: number): Task | null {
 export async function readTasks(): Promise<Task[]> {
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `'${SHEET_NAME}'!A2:O`,
+    range: `'${SHEET_NAME}'!A2:Q`,
   });
   const rows = (res.data.values ?? []) as unknown[][];
   const tasks: Task[] = [];

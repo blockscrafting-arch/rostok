@@ -13,8 +13,13 @@ import { sendDailySummary } from '../telegram/notifier';
 import { sleep } from '../utils/sleep';
 import { logInfo, logToSheet, serializeError } from '../utils/logger';
 
+/** Дата в локальной таймзоне (при TZ=Europe/Moscow — по Москве) для сброса лимита статей в день. */
 function todayKey(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  return `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
 /** Проверка: наступило ли время сводки (например "21:00"). */
@@ -33,6 +38,55 @@ function isAfterTime(timeStr: string): boolean {
   const nowM = now.getHours() * 60 + now.getMinutes();
   const targetM = h * 60 + m;
   return nowM >= targetM;
+}
+
+/** Текущее время в минутах с полуночи (локальная таймзона, ожидается TZ=Europe/Moscow). */
+function minutesSinceMidnight(d: Date): number {
+  return d.getHours() * 60 + d.getMinutes();
+}
+
+/** Проверка: текущее время входит в окно [start, end]. Пустые start/end — ограничения нет. */
+function isWithinPublishWindow(start: string, end: string): boolean {
+  const s = start.trim();
+  const e = end.trim();
+  if (!s && !e) return true;
+  const nowM = minutesSinceMidnight(new Date());
+  if (s) {
+    const [sh, sm] = s.split(':').map((x) => parseInt(x, 10) || 0);
+    const startM = sh * 60 + sm;
+    if (nowM < startM) return false;
+  }
+  if (e) {
+    const [eh, em] = e.split(':').map((x) => parseInt(x, 10) || 0);
+    const endM = eh * 60 + em;
+    if (nowM > endM) return false;
+  }
+  return true;
+}
+
+/**
+ * Проверка: наступило ли запланированное время публикации.
+ * scheduledAt: "ДД.ММ.ГГГГ ЧЧ:ММ" или "ЧЧ:ММ". Пусто — ограничения нет (true).
+ */
+function isScheduledTimeReached(scheduledAt: string | null): boolean {
+  const raw = (scheduledAt ?? '').trim();
+  if (!raw) return true;
+  const now = new Date();
+  let target: Date;
+  const fullMatch = raw.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(\d{1,2}):(\d{2})$/);
+  if (fullMatch) {
+    const [, day, month, year, hour, min] = fullMatch.map((x) => parseInt(x, 10));
+    target = new Date(year, month - 1, day, hour, min, 0, 0);
+  } else {
+    const timeMatch = raw.match(/^(\d{1,2}):(\d{2})$/);
+    if (timeMatch) {
+      const [, hour, min] = timeMatch.map((x) => parseInt(x, 10));
+      target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, min, 0, 0);
+    } else {
+      return true;
+    }
+  }
+  return now >= target;
 }
 
 let isRunning = true;
@@ -130,10 +184,15 @@ export async function mainLoop(): Promise<void> {
       }
 
       const approved = tasks.filter((t) => t.status === 'Одобрено на публикацию');
+      const readyBySchedule = approved.filter((t) => isScheduledTimeReached(t.scheduledAt));
+      const withinWindow = isWithinPublishWindow(settings.publishWindowStart, settings.publishWindowEnd);
       const limit = Math.max(0, settings.maxArticlesPerDay - publishedToday);
       const intervalMs = settings.publishIntervalMin * 60_000;
-      const canPublishNext = limit > 0 && (lastPublishedAt === 0 || Date.now() - lastPublishedAt >= intervalMs);
-      const toPublish = canPublishNext ? approved.slice(0, 1) : [];
+      const canPublishNext =
+        limit > 0 &&
+        withinWindow &&
+        (lastPublishedAt === 0 || Date.now() - lastPublishedAt >= intervalMs);
+      const toPublish = canPublishNext ? readyBySchedule.slice(0, 1) : [];
       for (const task of toPublish) {
         try {
           await publishingPipeline(task);

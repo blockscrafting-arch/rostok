@@ -37,7 +37,8 @@ function setupContentFactory() {
     'Итого ($)',
     'Дата',
     'Комментарий',
-    'Символов'
+    'Символов',
+    'Запланировано'
   ];
   
   sheetTasks.getRange(1, 1, 1, tasksHeaders.length).setValues([tasksHeaders]).setFontWeight('bold');
@@ -83,7 +84,9 @@ function setupContentFactory() {
     ['Telegram Channel ID', ''],
     ['Макс. статей в день', '10'],
     ['Режим модерации', 'вкл'],
-    ['Время сводки', '21:00']
+    ['Время сводки', '21:00'],
+    ['Публикация с', '07:00'],
+    ['Публикация до', '15:00']
   ];
   
   sheetSettings.getRange(1, 1, settingsData.length, 2).setValues(settingsData);

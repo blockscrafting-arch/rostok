@@ -8,6 +8,7 @@ services:
     volumes:
       # Ключ Google — путь в .env: GOOGLE_SERVICE_ACCOUNT_KEY=keys/service-account.json
       - ./keys:/app/keys:ro
+    environment:
+      - TZ=Europe/Moscow
     # при необходимости переопределить .env переменные:
-    # environment:
     #   - POLL_INTERVAL_MS=60000

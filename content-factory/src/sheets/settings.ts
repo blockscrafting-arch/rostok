@@ -200,6 +200,8 @@ export async function readSettings(): Promise<Settings> {
       return url && /^https?:\/\//i.test(url) ? url : undefined;
     })(),
     publishIntervalMin: Math.max(1, parseInt(get('Интервал публикации (мин)', '60'), 10) || 60),
+    publishWindowStart: (get('Публикация с', '') || '').trim(),
+    publishWindowEnd: (get('Публикация до', '') || '').trim(),
     groundingModel: get('Модель граундинга', '') || undefined,
     textModel: get('Модель текста', '') || undefined,
     imageModel: get('Модель картинки', '') || undefined,

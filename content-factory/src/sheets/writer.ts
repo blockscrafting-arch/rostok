@@ -135,10 +135,11 @@ export async function insertTaskRows(
     costTotal,
     '', '', // N, O
     0, // P = Символов (заполнится при генерации текста)
+    '', // Q = Запланировано
   ]);
 
-  // 0-based startRow0 → 1-based sheet row = startRow0 + 1. Колонка P = 16.
-  const range = `'${SHEET_NAME}'!A${startRow0 + 1}:P${startRow0 + numRows}`;
+  // 0-based startRow0 → 1-based sheet row = startRow0 + 1. Колонки A–Q.
+  const range = `'${SHEET_NAME}'!A${startRow0 + 1}:Q${startRow0 + numRows}`;
   await sheets.spreadsheets.values.update({
     spreadsheetId,
     range,

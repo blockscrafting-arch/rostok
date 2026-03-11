@@ -37,6 +37,8 @@ export interface Task {
   costTotal: string | null;
   date: string | null;
   comment: string | null;
+  /** Запланированная дата/время публикации: ДД.ММ.ГГГГ ЧЧ:ММ или ЧЧ:ММ. Пусто — без ограничения по времени строки. */
+  scheduledAt: string | null;
 }
 
 /** Настройки из листа «Настройки». */
@@ -69,6 +71,10 @@ export interface Settings {
   logoUrl?: string;
   /** Интервал между публикациями одобренных статей, минуты. */
   publishIntervalMin: number;
+  /** Время начала окна публикации (ЧЧ:ММ). Пусто — без ограничения. */
+  publishWindowStart: string;
+  /** Время окончания окна публикации (ЧЧ:ММ). Пусто — без ограничения. */
+  publishWindowEnd: string;
   /** Модель для граундинга (поиск фактов). Пусто — из env. */
   groundingModel?: string;
   /** Модель для текста (черновик и очеловечивание). Пусто — из env. */
