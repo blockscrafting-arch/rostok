@@ -20,7 +20,10 @@ function makeSettings(overrides: Partial<Settings> = {}): Settings {
     pollInterval: 60000,
     dailySummaryTime: '21:00',
     generationTime: '05:00',
+    imageGenerationMode: 'scheduled',
     publishIntervalMin: 60,
+    publishWindowStart: '',
+    publishWindowEnd: '',
     ...overrides,
   };
 }

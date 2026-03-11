@@ -91,7 +91,7 @@ export async function generatePlantImage(
   });
 
   const choice0 = res.choices?.[0];
-  const resAny = res as Record<string, unknown>;
+  const resAny = res as unknown as Record<string, unknown>;
   logInfo('Image API: response summary', {
     model,
     choicesLength: res.choices?.length ?? 0,
@@ -165,7 +165,7 @@ export async function generatePlantImage(
       messageKeys: msgObj ? Object.keys(msgObj) : [],
       message: safeForLog(msg, 500),
       contentPreview,
-      responseError: (res as Record<string, unknown>).error ?? undefined,
+      responseError: (res as unknown as Record<string, unknown>).error ?? undefined,
     });
   } else {
     logInfo('Image API: image found', {
