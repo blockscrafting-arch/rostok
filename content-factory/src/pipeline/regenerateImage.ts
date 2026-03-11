@@ -4,6 +4,7 @@
 import { generatePlantImage } from '../ai/image';
 import { uploadImage } from '../storage/s3';
 import { writeRegeneratedImage, setStatusError } from '../sheets/writer';
+import { appendStatistics } from '../sheets/statistics';
 import { withRetry } from '../utils/retry';
 import { logInfo, logWarn } from '../utils/logger';
 import { composeWithLogo } from '../utils/imageOverlay';
@@ -110,6 +111,16 @@ export async function regenerateImagePipeline(task: Task, settings: Settings): P
     }
 
     await writeRegeneratedImage(task, imageUrl, costImageUsd, 'Готово к проверке');
+    await appendStatistics({
+      headline: headline.slice(0, 200),
+      inputTokens: imgResult.usage?.prompt_tokens ?? 0,
+      outputTokens: imgResult.usage?.completion_tokens ?? 0,
+      model: imgResult.usage?.model ?? '—',
+      costTextUsd: 0,
+      costImageUsd,
+      costTotalUsd: costImageUsd,
+      date: new Date().toISOString().slice(0, 10),
+    }).catch(() => {});
     logInfo('Regenerated image', { headline: headline.slice(0, 50), rowIndex: task.rowIndex });
   } catch (e) {
     await setStatusError(task);
