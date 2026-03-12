@@ -11,6 +11,7 @@ module.exports = {
       max_memory_restart: '500M',
       env: {
         NODE_ENV: 'production',
+        // Окно публикации и время сводки в таблице — в МСК
         TZ: 'Europe/Moscow',
       },
       log_date_format: 'YYYY-MM-DD HH:mm:ss',
