@@ -66,22 +66,23 @@ function isWithinPublishWindow(start: string, end: string): boolean {
 
 /**
  * Проверка: наступило ли запланированное время публикации.
- * scheduledAt: "ДД.ММ.ГГГГ ЧЧ:ММ" или "ЧЧ:ММ". Пусто — ограничения нет (true).
+ * scheduledAt: "ДД.ММ.ГГГГ ЧЧ:ММ" или "ДД.ММ.ГГГГ ЧЧ:ММ:СС", или "ЧЧ:ММ", или "ЧЧ:ММ:СС". Пусто — ограничения нет (true).
+ * Поддерживается формат таблицы с секундами (например 12.03.2026 8:00:00).
  */
 function isScheduledTimeReached(scheduledAt: string | null): boolean {
   const raw = (scheduledAt ?? '').trim();
   if (!raw) return true;
   const now = new Date();
   let target: Date;
-  const fullMatch = raw.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(\d{1,2}):(\d{2})$/);
+  const fullMatch = raw.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
   if (fullMatch) {
-    const [, day, month, year, hour, min] = fullMatch.map((x) => parseInt(x, 10));
-    target = new Date(year, month - 1, day, hour, min, 0, 0);
+    const [, day, month, year, hour, min, sec] = fullMatch.map((x) => (x != null ? parseInt(x, 10) : 0));
+    target = new Date(year, month - 1, day, hour, min, sec || 0, 0);
   } else {
-    const timeMatch = raw.match(/^(\d{1,2}):(\d{2})$/);
+    const timeMatch = raw.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
     if (timeMatch) {
-      const [, hour, min] = timeMatch.map((x) => parseInt(x, 10));
-      target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, min, 0, 0);
+      const [, hour, min, sec] = timeMatch.map((x) => (x != null ? parseInt(x, 10) : 0));
+      target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, min, sec || 0, 0);
     } else {
       return true;
     }
@@ -95,11 +96,15 @@ export function stopScheduler(): void {
   isRunning = false;
 }
 
+const PUBLISH_SKIPPED_LOG_THROTTLE_MS = 5 * 60 * 1000; // 5 минут
+
 export async function mainLoop(): Promise<void> {
   let publishedToday = 0;
   let lastDateKey = '';
   let lastPublishedAt = 0;
   let dailySummarySentDate = '';
+  let lastPublishSkippedLogAt = 0;
+  let lastPublishSkippedReason = '';
   const dailyErrors: string[] = [];
 
   while (isRunning) {
@@ -208,11 +213,42 @@ export async function mainLoop(): Promise<void> {
         withinWindow &&
         (lastPublishedAt === 0 || Date.now() - lastPublishedAt >= intervalMs);
       const toPublish = canPublishNext ? readyBySchedule.slice(0, 1) : [];
+      if (readyBySchedule.length > 0 && toPublish.length === 0) {
+        const reason =
+          limit === 0
+            ? 'limit_reached'
+            : !withinWindow
+              ? 'outside_window'
+              : 'interval_wait';
+        const now = Date.now();
+        const throttleOk =
+          now - lastPublishSkippedLogAt >= PUBLISH_SKIPPED_LOG_THROTTLE_MS ||
+          lastPublishSkippedReason !== reason;
+        if (throttleOk) {
+          const nextPublishInMin =
+            reason === 'interval_wait' && lastPublishedAt > 0
+              ? Math.ceil((intervalMs - (now - lastPublishedAt)) / 60_000)
+              : undefined;
+          logInfo('Publish skipped', {
+            reason,
+            readyCount: readyBySchedule.length,
+            limit,
+            withinWindow,
+            ...(nextPublishInMin != null && nextPublishInMin > 0
+              ? { nextPublishInMin }
+              : {}),
+          });
+          lastPublishSkippedLogAt = now;
+          lastPublishSkippedReason = reason;
+        }
+      }
       for (const task of toPublish) {
         try {
           await publishingPipeline(task);
           publishedToday += 1;
           lastPublishedAt = Date.now();
+          lastPublishSkippedReason = '';
+          lastPublishSkippedLogAt = 0;
         } catch (e) {
           const { message: msg } = serializeError(e);
           dailyErrors.push(`Publish: ${task.headline ?? task.keyword} — ${msg}`);

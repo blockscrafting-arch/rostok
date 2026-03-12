@@ -55,8 +55,29 @@ async function readAllRows(): Promise<(string | number)[][]> {
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId,
     range: `'${SHEET_NAME}'!A:H`,
+    valueRenderOption: 'UNFORMATTED_VALUE',
   });
   return (res.data.values ?? []) as (string | number)[][];
+}
+
+/** Привести значение стоимости к числу (поддержка запятой как десятичного разделителя). */
+function parseCost(value: string | number | undefined): number {
+  if (value == null) return NaN;
+  if (typeof value === 'number') return Number.isNaN(value) ? NaN : value;
+  const normalized = String(value).trim().replace(',', '.');
+  const n = Number(normalized);
+  return Number.isNaN(n) ? NaN : n;
+}
+
+/** Серийный номер даты Google Sheets (0 = 1899-12-30) → YYYY-MM-DD. */
+function dateCellToYYYYMMDD(value: string | number | undefined): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value.trim();
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '';
+  const days = Math.floor(n);
+  const d = new Date((days - 25569) * 86400 * 1000);
+  return d.toISOString().slice(0, 10);
 }
 
 /**
@@ -71,10 +92,10 @@ export async function getStatsForPeriod(
   let totalCostUsd = 0;
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
-    const date = String(row[DATE_COL_INDEX] ?? '').trim();
-    if (date < fromDate || date > toDate) continue;
+    const date = dateCellToYYYYMMDD(row[DATE_COL_INDEX]);
+    if (!date || date < fromDate || date > toDate) continue;
     count += 1;
-    const cost = Number(row[COST_COL_INDEX]);
+    const cost = parseCost(row[COST_COL_INDEX]);
     if (!Number.isNaN(cost)) totalCostUsd += cost;
   }
   const avgCostUsd = count > 0 ? totalCostUsd / count : 0;
