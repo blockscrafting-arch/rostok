@@ -31,13 +31,23 @@ function isAfterSummaryTime(summaryTime: string): boolean {
   return nowM >= targetM;
 }
 
-/** Проверка: наступило ли заданное время суток (например "05:00"). */
-function isAfterTime(timeStr: string): boolean {
+/** Длина окна (минуты) для генерации картинок по расписанию: только в этот интервал после generationTime. */
+const IMAGE_GENERATION_WINDOW_MINUTES = 60;
+
+/**
+ * Проверка: текущее время в окне для генерации картинок по расписанию.
+ * Например при generationTime "05:00" и окне 60 мин — только с 5:00 до 6:00, не в 14:30.
+ */
+function isWithinImageGenerationWindow(timeStr: string, windowMinutes: number): boolean {
   const [h, m] = timeStr.split(':').map((x) => parseInt(x, 10) || 0);
   const now = new Date();
   const nowM = now.getHours() * 60 + now.getMinutes();
-  const targetM = h * 60 + m;
-  return nowM >= targetM;
+  const startM = h * 60 + m;
+  const endM = startM + windowMinutes;
+  if (endM <= 24 * 60) {
+    return nowM >= startM && nowM < endM;
+  }
+  return nowM >= startM || nowM < endM % (24 * 60);
 }
 
 /** Текущее время в минутах с полуночи (локальная таймзона, ожидается TZ=Europe/Moscow). */
@@ -143,9 +153,11 @@ export async function mainLoop(): Promise<void> {
 
       const imagePending = tasks.filter((t) => t.status === 'Текст готов, ждём картинку');
       const isScheduled = settings.imageGenerationMode === 'scheduled';
-      const canRunImageGeneration = !isScheduled || isAfterTime(settings.generationTime);
+      const canRunImageGeneration =
+        !isScheduled ||
+        isWithinImageGenerationWindow(settings.generationTime, IMAGE_GENERATION_WINDOW_MINUTES);
       if (imagePending.length > 0 && !canRunImageGeneration) {
-        logInfo('Image generation skipped (scheduled, before time)', {
+        logInfo('Image generation skipped (scheduled, outside time window)', {
           mode: 'scheduled',
           generationTime: settings.generationTime,
           pendingCount: imagePending.length,
