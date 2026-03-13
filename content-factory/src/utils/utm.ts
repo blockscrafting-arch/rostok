@@ -44,11 +44,19 @@ export function buildUtmUrl(
     baseUrl = Object.values(catalogMap)[0];
   }
 
+  // Декодируем шаблон: браузер/Дзен могли превратить { } в %7B %7D при копировании
+  let decodedTemplate = utmTemplate;
+  try {
+    decodedTemplate = decodeURI(utmTemplate);
+  } catch {
+    // В случае кривого URL оставляем как есть
+  }
+
   // Подставляем {topic}, {campaign} и {keyword} в шаблон
-  let url = utmTemplate
-    .replace(/\{topic\}/g, topicSlug)
-    .replace(/\{campaign\}/g, topicSlug)
-    .replace(/\{keyword\}/g, keywordEncoded);
+  let url = decodedTemplate
+    .replace(/\{topic\}/gi, topicSlug)
+    .replace(/\{campaign\}/gi, topicSlug)
+    .replace(/\{keyword\}/gi, keywordEncoded);
 
   // Если в шаблоне нет полного URL, префиксируем baseUrl
   if (url.startsWith('?')) {
@@ -57,5 +65,5 @@ export function buildUtmUrl(
     url = baseUrl.replace(/\?.*$/, '') + (url.startsWith('/') ? url : `?${url}`);
   }
 
-  return url || utmTemplate;
+  return url || decodedTemplate;
 }
