@@ -8,6 +8,23 @@ import { config } from '../config';
 const LOG_SHEET_NAME = 'Лог';
 const MAX_STACK_LENGTH = 800;
 
+const MAX_RESPONSE_PREVIEW = 400;
+
+/** Извлечь безопасный превью ответа API из ошибки (OpenRouter/Axios-подобные). Для отладки при сбоях. */
+export function getApiErrorResponsePreview(error: unknown): string | undefined {
+  if (error == null || typeof error !== 'object') return undefined;
+  const o = error as Record<string, unknown>;
+  const errObj = o.error && typeof o.error === 'object' ? (o.error as Record<string, unknown>) : null;
+  const data = o.response ?? errObj?.response ?? o.data;
+  if (data == null) return undefined;
+  try {
+    const str = typeof data === 'string' ? data : JSON.stringify(data);
+    return str.length > MAX_RESPONSE_PREVIEW ? str.slice(0, MAX_RESPONSE_PREVIEW) + '...' : str;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Сериализация ошибки для логов: сообщение и стек (обрезанный). */
 export function serializeError(error: unknown): { message: string; stack?: string } {
   if (error instanceof Error) {
@@ -50,11 +67,13 @@ export function logError(message: string, error?: unknown): void {
 /**
  * Записать строку в лист «Лог» (время, действие, результат, ошибка).
  * Не бросает исключение при сбое записи.
+ * @param options.spreadsheetId — таблица клиента; при отсутствии используется config (одна таблица).
  */
 export async function logToSheet(
   action: string,
   result: 'ok' | 'error',
-  errorMessage?: string
+  errorMessage?: string,
+  options?: { spreadsheetId?: string }
 ): Promise<void> {
   try {
     const auth = new google.auth.GoogleAuth({
@@ -62,8 +81,9 @@ export async function logToSheet(
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
     const s = google.sheets({ version: 'v4', auth });
+    const spreadsheetId = options?.spreadsheetId?.trim() || config.google.spreadsheetId;
     await s.spreadsheets.values.append({
-      spreadsheetId: config.google.spreadsheetId,
+      spreadsheetId,
       range: `'${LOG_SHEET_NAME}'!A:D`,
       valueInputOption: 'RAW',
       requestBody: {
@@ -71,6 +91,7 @@ export async function logToSheet(
       },
     });
   } catch (e) {
-    console.error('Failed to write to Log sheet:', e);
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('Failed to write to Log sheet:', msg);
   }
 }

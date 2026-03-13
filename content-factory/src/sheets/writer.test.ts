@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { colLetter, formatFrequencyLimit } from './writer';
+import { colLetter, formatFrequencyLimit, escapeFormulaCell } from './writer';
 
 describe('colLetter', () => {
   it('A=1, B=2, ..., Z=26', () => {
@@ -27,5 +27,23 @@ describe('formatFrequencyLimit', () => {
 
   it('объект min/max возвращает "min-max"', () => {
     expect(formatFrequencyLimit({ min: 300, max: 500 })).toBe('300-500');
+  });
+});
+
+describe('escapeFormulaCell', () => {
+  it('обычный текст не меняется', () => {
+    expect(escapeFormulaCell('Розы')).toBe('Розы');
+    expect(escapeFormulaCell('300')).toBe('300');
+  });
+
+  it('ведущие =, +, -, @ экранируются префиксом apostrophe', () => {
+    expect(escapeFormulaCell('=CMD|...')).toBe("'=CMD|...");
+    expect(escapeFormulaCell('+1')).toBe("'+1");
+    expect(escapeFormulaCell('-2')).toBe("'-2");
+    expect(escapeFormulaCell('@ref')).toBe("'@ref");
+  });
+
+  it('пробелы перед формулой не мешают экранированию', () => {
+    expect(escapeFormulaCell('  =1+1')).toBe("'  =1+1");
   });
 });

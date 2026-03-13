@@ -56,7 +56,7 @@ async function fetchDocContent(docUrl: string): Promise<string> {
     return parts.join('').trim();
   } catch (e) {
     const err = e instanceof Error ? e.message : String(e);
-    logWarn('fetchDocContent error', { docUrl, error: err });
+    logWarn('fetchDocContent error', { docUrl, errorMessage: err });
     return '';
   }
 }
@@ -105,7 +105,7 @@ async function fetchCatalogDocContent(docUrl: string): Promise<string> {
     return lines.join('\n');
   } catch (e) {
     const err = e instanceof Error ? e.message : String(e);
-    logWarn('fetchCatalogDocContent error', { docUrl, error: err });
+    logWarn('fetchCatalogDocContent error', { docUrl, errorMessage: err });
     return '';
   }
 }
@@ -138,10 +138,12 @@ export function parseCatalogMap(text: string): Record<string, string> {
 /**
  * Настройки хранятся в виде пар ключ-значение (колонки A, B) или одной таблицы.
  * Предполагаем: A — параметр, B — значение. Строки: Роль, Промпт 1, Промпт 2, Промпт 3, ДНК Бренда, Справочник каталога, Справочник фото, Шаблон UTM, Telegram Channel ID, Макс. статей в день, Режим модерации, Время сводки.
+ * @param overrides.spreadsheetId — ID таблицы клиента; при отсутствии используется config (одна таблица).
  */
-export async function readSettings(): Promise<Settings> {
+export async function readSettings(overrides?: { spreadsheetId?: string }): Promise<Settings> {
+  const sid = overrides?.spreadsheetId ?? spreadsheetId;
   const res = await sheets.spreadsheets.values.get({
-    spreadsheetId,
+    spreadsheetId: sid,
     range: `'${SHEET_NAME}'!A1:B50`,
   });
   const rows = (res.data.values ?? []) as string[][];

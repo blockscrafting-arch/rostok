@@ -1,12 +1,13 @@
 /**
  * Очеловечивание: Промпт 3 + ДНК бренда, финальный текст до 4000 символов.
  */
-import { openrouter } from './client';
+import type OpenAI from 'openai';
 import { config } from '../config';
 import { truncateAtSentence } from '../utils/text';
 import type { TokenUsage } from '../types';
 
 export async function humanize(
+  aiClient: OpenAI,
   draft: string,
   prompt3: string,
   dnaBrandText: string,
@@ -41,7 +42,7 @@ ${dnaBrandText || 'Не указано.'}`;
     userContent += `\n\nЗамечание редактора (обязательно учти при генерации): ${editorComment}`;
   }
 
-  const res = await openrouter.chat.completions.create({
+  const res = await aiClient.chat.completions.create({
     model,
     messages: [
       { role: 'system', content: systemContent },

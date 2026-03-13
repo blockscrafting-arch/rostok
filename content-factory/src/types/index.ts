@@ -19,7 +19,7 @@ export type TaskStatus =
 /** Лимит частотности: одно число (минимум) или диапазон "min-max". */
 export type FrequencyLimit = number | { min: number; max: number };
 
-/** Строка листа «Задания» (индексы колонок для чтения/записи задаются в sheets/tasks и writer). Колонка «Площадка» удалена. */
+/** Строка листа «Задания» (индексы колонок для чтения/записи задаются в sheets/tasks и writer). Колонка «Площадка» удалена. Алиас SheetTask — чтобы не путать с моделью Prisma Task. */
 export interface Task {
   rowIndex: number;
   keyword: string;
@@ -41,6 +41,9 @@ export interface Task {
   /** Запланированная дата/время публикации: ДД.ММ.ГГГГ ЧЧ:ММ или ЧЧ:ММ. Пусто — без ограничения по времени строки. */
   scheduledAt: string | null;
 }
+
+/** Алиас типа задачи из листа «Задания» (не путать с Prisma Task). */
+export type SheetTask = Task;
 
 /** Настройки из листа «Настройки». */
 export interface Settings {
@@ -103,6 +106,19 @@ export interface CostRecord {
   inputTokens: number;
   outputTokens: number;
   totalCostUsd?: number;
+}
+
+/**
+ * Контекст выполнения пайплайна для мульти-клиента.
+ * При отсутствии — используется глобальный openrouter и одна таблица из config.
+ */
+export interface PipelineContext {
+  /** OpenAI-совместимый клиент (OpenRouter) с API-ключом клиента. */
+  aiClient?: import('openai').OpenAI;
+  /** Таблица клиента для чтения/записи. */
+  sheetContext?: { spreadsheetId?: string };
+  /** Telegram-канал для публикации (например @channel или -100...). */
+  telegramChannelId?: string;
 }
 
 /** Использование токенов из ответа OpenRouter. */

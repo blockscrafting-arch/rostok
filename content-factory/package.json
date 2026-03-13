@@ -9,11 +9,14 @@
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
     "hide-rows": "ts-node src/scripts/hideRows.ts",
+    "export-client": "ts-node cli/export-client.ts",
+    "create-client-table": "ts-node cli/create-client-table.ts",
     "test": "vitest",
     "test:run": "vitest run"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.650.0",
+    "@prisma/client": "^5.22.0",
     "dotenv": "^16.4.5",
     "googleapis": "^144.0.0",
     "openai": "^4.73.0",
@@ -23,11 +26,15 @@
   "devDependencies": {
     "@types/node": "^22.9.0",
     "esbuild": "^0.24.2",
+    "prisma": "^5.22.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.3",
     "vitest": "^2.1.9"
   },
   "engines": {
     "node": ">=20"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   }
 }

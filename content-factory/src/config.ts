@@ -26,6 +26,8 @@ export const config = {
   google: {
     serviceAccountKey: path.resolve(process.cwd(), env('GOOGLE_SERVICE_ACCOUNT_KEY')),
     spreadsheetId: env('SPREADSHEET_ID'),
+    /** ID эталонной таблицы для копирования новым клиентам (опционально). */
+    templateSpreadsheetId: envOptional('TEMPLATE_SPREADSHEET_ID'),
   },
   openrouter: {
     apiKey: env('OPENROUTER_API_KEY'),
@@ -53,5 +55,7 @@ export const config = {
     maxArticlesPerDay: envNum('MAX_ARTICLES_PER_DAY', 10),
     retryAttempts: envNum('RETRY_ATTEMPTS', 3),
     retryBaseDelayMs: envNum('RETRY_BASE_DELAY_MS', 2000),
+    /** Таймаут запросов к OpenRouter, мс (защита от зависания). */
+    openrouterTimeoutMs: envNum('OPENROUTER_TIMEOUT_MS', 120_000),
   },
 } as const;

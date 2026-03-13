@@ -7,4 +7,5 @@ import { config } from '../config';
 export const openrouter = new OpenAI({
   apiKey: config.openrouter.apiKey,
   baseURL: 'https://openrouter.ai/api/v1',
+  timeout: config.schedule.openrouterTimeoutMs,
 });

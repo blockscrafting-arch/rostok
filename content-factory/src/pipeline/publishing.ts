@@ -7,7 +7,7 @@ import { writePublished, setStatusError } from '../sheets/writer';
 import { withRetry } from '../utils/retry';
 import { logInfo } from '../utils/logger';
 import { markdownToTelegramHtml } from '../utils/markdownToHtml';
-import type { Task } from '../types';
+import type { SheetTask, PipelineContext } from '../types';
 
 const MAX_TEXT_LENGTH = 4096;
 
@@ -19,12 +19,15 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
-export async function publishingPipeline(task: Task): Promise<void> {
+export async function publishingPipeline(task: SheetTask, context?: PipelineContext): Promise<void> {
+  const sheetCtx = context?.sheetContext;
+  const telegramChannelId = context?.telegramChannelId;
+
   if (task.status !== 'Одобрено на публикацию') return;
 
   const text = task.previewText?.trim();
   if (!text) {
-    await setStatusError(task);
+    await setStatusError(task, sheetCtx);
     throw new Error('Нет текста для публикации');
   }
 
@@ -33,15 +36,15 @@ export async function publishingPipeline(task: Task): Promise<void> {
 
   try {
     const { postUrl } = await withRetry(
-      () => publishToChannel(toPublish),
+      () => publishToChannel(toPublish, telegramChannelId),
       'Telegram publish'
     );
-    await writePublished(task, postUrl);
+    await writePublished(task, postUrl, sheetCtx);
     const headlineSafe = escapeHtml((task.headline ?? '').slice(0, 60));
     await notify(`Опубликовано: <a href="${escapeHtml(postUrl)}">${headlineSafe}</a>`);
     logInfo('Published', { postUrl, headline: task.headline?.slice(0, 50) });
   } catch (error) {
-    await setStatusError(task);
+    await setStatusError(task, sheetCtx);
     throw error;
   }
 }

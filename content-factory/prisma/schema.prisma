@@ -1,0 +1,145 @@
+// Контент-Завод 2.0 — мульти-клиент. PostgreSQL.
+// Prisma 5.x, CommonJS-совместимый проект.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AdminSettings {
+  id                    String   @id @default("global")
+  masterPrompt1         String   @map("master_prompt_1")
+  masterPrompt2         String   @map("master_prompt_2")
+  masterPrompt3         String   @map("master_prompt_3")
+  masterPromptImage     String   @map("master_prompt_image")
+  masterPromptImageRef  String   @map("master_prompt_image_ref")
+  masterPromptGrounding String   @map("master_prompt_grounding")
+  headlineRules         String   @map("headline_rules")
+  defaultTextModel      String   @default("deepseek/deepseek-chat")
+  defaultImageModel     String   @default("google/gemini-3.1-flash-image-preview")
+  defaultGroundingModel String   @default("perplexity/sonar")
+  updatedAt             DateTime @updatedAt
+
+  @@map("admin_settings")
+}
+
+model Client {
+  id                 String    @id @default(uuid())
+  name               String
+  niche              String
+  telegramChatId     String?   @unique @map("telegram_chat_id")
+  openrouterApiKey   String    @map("openrouter_api_key")
+  spreadsheetId      String?   @map("spreadsheet_id")
+  telegramChannelId  String?   @map("telegram_channel_id")
+  notifyChatId       String?   @map("notify_chat_id")
+  isActive           Boolean   @default(false)
+  onboardingDone     Boolean   @default(false) @map("onboarding_done")
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  settings           ClientSettings?
+  tasks              Task[]
+  costRecords        CostRecord[]
+
+  @@map("clients")
+}
+
+model ClientSettings {
+  id                 String   @id @default(uuid())
+  clientId           String   @unique @map("client_id")
+  client             Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  role               String
+  contentTypes       String[] @default([])
+  trustedSites       String[] @default([])
+  productDetails     String?  @map("product_details")
+  dnaBrand           String   @map("dna_brand")
+  cta                String
+  imageStyle         String   @map("image_style")
+  logoUrl            String?  @map("logo_url")
+  utmTemplate        String?  @map("utm_template")
+  frequencyLimit     String?  @map("frequency_limit") @default("300")
+  maxArticlesPerDay  Int      @default(10)
+  moderationEnabled  Boolean  @default(true)
+  publishIntervalMin Int      @default(60)
+  publishWindowStart String?  @default("")
+  publishWindowEnd   String?  @default("")
+  dailySummaryTime   String   @default("21:00")
+  generationTime     String   @default("05:00")
+  imageGenMode       String   @default("immediate")
+  headlinesCount     Int      @default(30)
+  textModel          String?
+  imageModel         String?
+  groundingModel     String?
+  updatedAt          DateTime @updatedAt
+
+  @@map("client_settings")
+}
+
+model OnboardingStep {
+  id          String @id @default(uuid())
+  stepOrder   Int    @map("step_order")
+  description String
+  fileId      String @map("file_id")
+  fileType    String @map("file_type") @default("video_note")
+
+  @@map("onboarding_steps")
+}
+
+model Task {
+  id          String   @id @default(uuid())
+  clientId    String   @map("client_id")
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  sheetRow    Int      @map("sheet_row")
+  keyword     String
+  headline    String?
+  keywords    String?
+  status      String
+  fullText    String?  @map("full_text")
+  sources     String?
+  imageUrl    String?  @map("image_url")
+  utmUrl      String?  @map("utm_url")
+  postUrl     String?  @map("post_url")
+  costText    Float    @default(0)
+  costImage   Float    @default(0)
+  costTotal   Float    @default(0)
+  charCount   Int      @default(0) @map("char_count")
+  scheduledAt String?  @map("scheduled_at")
+  comment     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([clientId, status])
+  @@map("tasks")
+}
+
+model CostRecord {
+  id           String   @id @default(uuid())
+  clientId     String   @map("client_id")
+  client       Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  taskId       String?  @map("task_id")
+  operation    String
+  model        String
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  costUsd      Float    @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([clientId, createdAt])
+  @@map("cost_records")
+}
+
+model Log {
+  id        String   @id @default(uuid())
+  clientId  String?  @map("client_id")
+  level     String   @default("info")
+  action    String
+  result    String?
+  error     String?
+  createdAt DateTime @default(now())
+
+  @@index([clientId, createdAt])
+  @@map("logs")
+}

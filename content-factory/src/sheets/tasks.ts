@@ -2,7 +2,7 @@
  * Чтение листа «Задания»: все строки с данными, фильтрация по статусу.
  */
 import { sheets, spreadsheetId } from './client';
-import type { Task, TaskStatus, FrequencyLimit } from '../types';
+import type { SheetTask, TaskStatus, FrequencyLimit } from '../types';
 
 const SHEET_NAME = 'Задания';
 
@@ -54,8 +54,8 @@ const VALID_STATUSES: TaskStatus[] = [
   'Перегенерировать текст',
 ];
 
-/** Парсит одну строку листа в Task. Экспорт для тестов. */
-export function parseRow(row: unknown[], sheetRowIndex: number): Task | null {
+/** Парсит одну строку листа в SheetTask. Экспорт для тестов. */
+export function parseRow(row: unknown[], sheetRowIndex: number): SheetTask | null {
   const keyword = String(row[COL.keyword] ?? '').trim();
   const statusRaw = String(row[COL.status] ?? '').trim();
   if (!keyword) return null;
@@ -92,14 +92,16 @@ export function parseRow(row: unknown[], sheetRowIndex: number): Task | null {
 /**
  * Получить все задачи с данными (без заголовка).
  * Фильтр по статусу не применяется — вызывающий код фильтрует сам.
+ * @param overrides.spreadsheetId — ID таблицы клиента; при отсутствии используется config (одна таблица).
  */
-export async function readTasks(): Promise<Task[]> {
+export async function readTasks(overrides?: { spreadsheetId?: string }): Promise<SheetTask[]> {
+  const sid = overrides?.spreadsheetId ?? spreadsheetId;
   const res = await sheets.spreadsheets.values.get({
-    spreadsheetId,
+    spreadsheetId: sid,
     range: `'${SHEET_NAME}'!A2:Q`,
   });
   const rows = (res.data.values ?? []) as unknown[][];
-  const tasks: Task[] = [];
+  const tasks: SheetTask[] = [];
   for (let i = 0; i < rows.length; i++) {
     const task = parseRow(rows[i], i + 2);
     if (task) tasks.push(task);

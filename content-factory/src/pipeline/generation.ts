@@ -6,14 +6,14 @@ import { buildUtmUrl } from '../utils/utm';
 import { groundArticleFacts } from '../ai/grounding';
 import { generateDraft } from '../ai/draft';
 import { humanize } from '../ai/humanize';
+import { openrouter } from '../ai/client';
 import { splitCostUsd } from '../ai/cost';
 import { writeTextResult, updateStatus, setStatusError } from '../sheets/writer';
 import { appendStatistics } from '../sheets/statistics';
 import { withRetry } from '../utils/retry';
 import { logInfo } from '../utils/logger';
 import { truncateAtSentence, cleanArticleFirstLine, insertCatalogLinks } from '../utils/text';
-import type { Task } from '../types';
-import type { Settings } from '../types';
+import type { SheetTask, Settings, PipelineContext } from '../types';
 
 export interface GenerationOptions {
   isRevision?: boolean;
@@ -26,11 +26,15 @@ const MAX_HEADLINE_LENGTH = 500;
 const MAX_COMMENT_LENGTH = 2000;
 
 export async function generationPipeline(
-  task: Task,
+  task: SheetTask,
   settings: Settings,
-  options: GenerationOptions = {}
+  options: GenerationOptions = {},
+  context?: PipelineContext
 ): Promise<void> {
   const { isRevision = false, editorComment, keepImage = false } = options;
+  const aiClient = context?.aiClient ?? openrouter;
+  const sheetCtx = context?.sheetContext;
+
   const headline = (task.headline?.trim() ?? '').slice(0, MAX_HEADLINE_LENGTH);
   if (
     !headline ||
@@ -43,7 +47,7 @@ export async function generationPipeline(
   const comment = ((editorComment ?? task.comment ?? '') as string).slice(0, MAX_COMMENT_LENGTH) || undefined;
 
   try {
-    await updateStatus(task, 'Генерация');
+    await updateStatus(task, 'Генерация', sheetCtx);
 
     const keywords = (task.keywords ?? '')
       .split(/[,;]/)
@@ -52,13 +56,17 @@ export async function generationPipeline(
     if (!keywords.length) keywords.push((task.keyword ?? '').slice(0, 500));
 
     const { facts, citations, usage: usageGround } = await withRetry(
-      () => groundArticleFacts(headline, keywords, settings.groundingModel),
+      () =>
+        groundArticleFacts(aiClient, headline, keywords, {
+          modelOverride: settings.groundingModel,
+        }),
       'Grounding'
     );
 
     const { text: draftText, usage: usageDraft } = await withRetry(
       () =>
         generateDraft(
+          aiClient,
           headline,
           keywords,
           settings.prompt2,
@@ -73,6 +81,7 @@ export async function generationPipeline(
     const { text: finalText, usage: usageHumanize } = await withRetry(
       () =>
         humanize(
+          aiClient,
           draftText,
           settings.prompt3,
           settings.dnaBrandText,
@@ -100,7 +109,8 @@ export async function generationPipeline(
         utmUrl,
         costTextUsd,
       },
-      { statusAfter: keepImage ? 'Готово к проверке' : 'Текст готов, ждём картинку' }
+      { statusAfter: keepImage ? 'Готово к проверке' : 'Текст готов, ждём картинку' },
+      sheetCtx
     );
 
     const inputTokens =
@@ -118,11 +128,11 @@ export async function generationPipeline(
       costImageUsd: 0,
       costTotalUsd: costTextUsd,
       date: new Date().toISOString().slice(0, 10),
-    }).catch(() => {});
+    }, sheetCtx).catch(() => {});
 
     logInfo('Text generation done', { headline: headline.slice(0, 50), costTextUsd });
   } catch (error) {
-    await setStatusError(task);
+    await setStatusError(task, sheetCtx);
     throw error;
   }
 }

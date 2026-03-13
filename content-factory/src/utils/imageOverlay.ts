@@ -4,15 +4,19 @@
 import sharp from 'sharp';
 import { logWarn } from './logger';
 import { convertDriveUrlToDirectDownload } from './url';
+import { isFetchUrlAllowed } from './urlAllowlist';
 
 const LOGO_MAX_FRACTION = 0.2; // логотип не более 20% от меньшей стороны основы
 const PADDING_PX = 16;
 
 /**
- * Скачать изображение по URL в буфер.
+ * Скачать изображение по URL в буфер. Только разрешённые хосты (allowlist).
  */
 async function fetchImageBuffer(url: string): Promise<Buffer> {
   const directUrl = convertDriveUrlToDirectDownload(url);
+  if (!isFetchUrlAllowed(directUrl)) {
+    throw new Error('URL not allowed for fetch (SSRF protection)');
+  }
   const resp = await fetch(directUrl);
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   return Buffer.from(await resp.arrayBuffer());
@@ -47,8 +51,8 @@ export async function composeWithLogo(baseBuffer: Buffer, logoUrl: string): Prom
       .toBuffer();
     return out;
   } catch (e) {
-    const err = e instanceof Error ? e.message : String(e);
-    logWarn('Logo overlay failed, using image without logo', { logoUrl, error: err });
+    const errorMessage = e instanceof Error ? e.message : String(e);
+    logWarn('Logo overlay failed, using image without logo', { logoUrl, errorMessage });
     return null;
   }
 }

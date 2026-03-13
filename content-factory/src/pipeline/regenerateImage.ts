@@ -2,21 +2,28 @@
  * Пайплайн «Перегенерировать картинку»: только изображение по заголовку и Справочнику фото → S3 → обновление H, L, M, E.
  */
 import { generatePlantImage } from '../ai/image';
+import { openrouter } from '../ai/client';
 import { uploadImage } from '../storage/s3';
 import { writeRegeneratedImage, setStatusError } from '../sheets/writer';
 import { appendStatistics } from '../sheets/statistics';
 import { withRetry } from '../utils/retry';
 import { logInfo, logWarn } from '../utils/logger';
 import { composeWithLogo } from '../utils/imageOverlay';
-import type { Task } from '../types';
-import type { Settings } from '../types';
+import type { SheetTask, Settings, PipelineContext } from '../types';
 
 const MAX_HEADLINE_LENGTH = 500;
 
-export async function regenerateImagePipeline(task: Task, settings: Settings): Promise<void> {
+export async function regenerateImagePipeline(
+  task: SheetTask,
+  settings: Settings,
+  context?: PipelineContext
+): Promise<void> {
+  const aiClient = context?.aiClient ?? openrouter;
+  const sheetCtx = context?.sheetContext;
+
   const headline = (task.headline?.trim() ?? '').slice(0, MAX_HEADLINE_LENGTH);
   if (!headline) {
-    await setStatusError(task);
+    await setStatusError(task, sheetCtx);
     throw new Error('Нет заголовка для перегенерации картинки');
   }
 
@@ -48,7 +55,7 @@ export async function regenerateImagePipeline(task: Task, settings: Settings): P
   });
   try {
     const imgResult = await withRetry(
-      () => generatePlantImage(headline, referencePhotoUrl || undefined, imageOptions),
+      () => generatePlantImage(aiClient, headline, referencePhotoUrl || undefined, imageOptions),
       'Regenerate image'
     );
     const costImageUsd = imgResult.costUsd ?? 0;
@@ -77,15 +84,21 @@ export async function regenerateImagePipeline(task: Task, settings: Settings): P
         buf = Buffer.from(base64Data, 'base64');
         logInfo('RegenerateImage pipeline: decoded base64', { rowIndex: task.rowIndex, bufBytes: buf.length });
       } else if (rawImage.startsWith('http')) {
-        const resp = await fetch(rawImage);
-        logInfo('RegenerateImage pipeline: fetched image URL', {
+        const { isFetchUrlAllowed } = await import('../utils/urlAllowlist');
+        if (!isFetchUrlAllowed(rawImage)) {
+          logWarn('RegenerateImage pipeline: URL not allowed for fetch (SSRF)', { rowIndex: task.rowIndex });
+          buf = Buffer.alloc(0);
+        } else {
+          const resp = await fetch(rawImage);
+          logInfo('RegenerateImage pipeline: fetched image URL', {
           rowIndex: task.rowIndex,
           status: resp.status,
           ok: resp.ok,
         });
-        if (resp.ok) buf = Buffer.from(await resp.arrayBuffer());
-        else buf = Buffer.alloc(0);
-        if (buf.length > 0) logInfo('RegenerateImage pipeline: download size', { rowIndex: task.rowIndex, bufBytes: buf.length });
+          if (resp.ok) buf = Buffer.from(await resp.arrayBuffer());
+          else buf = Buffer.alloc(0);
+          if (buf.length > 0) logInfo('RegenerateImage pipeline: download size', { rowIndex: task.rowIndex, bufBytes: buf.length });
+        }
       } else {
         buf = Buffer.alloc(0);
         logWarn('RegenerateImage pipeline: unknown rawImage format', { rowIndex: task.rowIndex, prefix: rawImage.slice(0, 30) });
@@ -114,11 +127,11 @@ export async function regenerateImagePipeline(task: Task, settings: Settings): P
         rawImageType: rawImageType ?? 'empty',
         rawImageLength: rawImage?.length ?? 0,
       });
-      await setStatusError(task);
+      await setStatusError(task, sheetCtx);
       throw new Error('Модель не вернула изображение или загрузка в S3 не удалась');
     }
 
-    await writeRegeneratedImage(task, imageUrl, costImageUsd, 'Готово к проверке');
+    await writeRegeneratedImage(task, imageUrl, costImageUsd, 'Готово к проверке', sheetCtx);
     await appendStatistics({
       headline: headline.slice(0, 200),
       inputTokens: imgResult.usage?.prompt_tokens ?? 0,
@@ -128,10 +141,10 @@ export async function regenerateImagePipeline(task: Task, settings: Settings): P
       costImageUsd,
       costTotalUsd: costImageUsd,
       date: new Date().toISOString().slice(0, 10),
-    }).catch(() => {});
+    }, sheetCtx).catch(() => {});
     logInfo('Regenerated image', { headline: headline.slice(0, 50), rowIndex: task.rowIndex });
   } catch (e) {
-    await setStatusError(task);
+    await setStatusError(task, sheetCtx);
     throw e;
   }
 }

@@ -51,7 +51,7 @@ export async function fetchKeywords(
 
     return items.filter((item) => inRange(item.frequency, frequencyLimit));
   } catch (e) {
-    logWarn('Wordstat topRequests failed', { phrase, error: e });
+    logWarn('Wordstat topRequests failed', { phrase, errorMessage: e instanceof Error ? e.message : String(e) });
     throw e;
   }
 }

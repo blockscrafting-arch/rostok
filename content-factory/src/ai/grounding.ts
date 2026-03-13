@@ -1,7 +1,8 @@
 /**
  * Веб-граундинг: Perplexity Sonar собирает проверенные факты по заголовку и ключевым словам.
+ * Промпт параметризуется: ниша, доверенные сайты (опционально promptOverride — полный текст).
  */
-import { openrouter } from './client';
+import type OpenAI from 'openai';
 import { config } from '../config';
 import type { TokenUsage } from '../types';
 
@@ -11,28 +12,40 @@ export interface GroundingResult {
   usage: TokenUsage;
 }
 
+const DEFAULT_GROUNDING_PROMPT = `Собери проверенные факты для статьи.
+Заголовок: "{headline}"
+Ключевые слова: {keywords}
+Верни только проверенные данные. Источники укажи в конце списком URL.`;
+
 export async function groundArticleFacts(
+  aiClient: OpenAI,
   headline: string,
   keywords: string[],
-  modelOverride?: string
+  options?: { modelOverride?: string; promptOverride?: string; niche?: string; trustedSites?: string[] }
 ): Promise<GroundingResult> {
-  const model = modelOverride?.trim() || config.openrouter.groundingModel;
+  const model = options?.modelOverride?.trim() || config.openrouter.groundingModel;
   const kw = keywords.length ? keywords.join(', ') : headline;
-  const res = await openrouter.chat.completions.create({
+  let content: string;
+  if (options?.promptOverride?.trim()) {
+    content = options.promptOverride
+      .replace(/\{headline\}/g, headline)
+      .replace(/\{keywords\}/g, kw)
+      .replace(/\{niche\}/g, options.niche ?? '')
+      .replace(/\{trusted_sites\}/g, (options.trustedSites ?? []).join('\n'));
+  } else {
+    const niche = options?.niche ? ` Тематика: ${options.niche}.` : '';
+    const sites =
+      options?.trustedSites?.length ?
+        ` Предпочтительные источники: ${options.trustedSites.join(', ')}.`
+      : '';
+    content = DEFAULT_GROUNDING_PROMPT.replace('{headline}', headline).replace('{keywords}', kw) + niche + sites;
+  }
+  const res = await aiClient.chat.completions.create({
     model,
-    messages: [
-      {
-        role: 'user',
-        content: `Собери проверенные факты для статьи о растениях.
-Заголовок: "${headline}"
-Ключевые слова: ${kw}
-
-Верни: зимостойкость (зона USDA), уход (почва, полив, свет), сорта, региональные особенности. Только проверенные данные. Источники укажи в конце списком URL.`,
-      },
-    ],
+    messages: [{ role: 'user', content }],
   });
 
-  const content = res.choices[0]?.message?.content ?? '';
+  const factsText = res.choices[0]?.message?.content ?? '';
   const u = res.usage as { total_cost?: number; cost?: number } | undefined;
   const usage: TokenUsage = {
     prompt_tokens: res.usage?.prompt_tokens ?? 0,
@@ -44,18 +57,18 @@ export async function groundArticleFacts(
 
   const citations: string[] = [];
   const urlRegex = /https?:\/\/[^\s)\]]+/g;
-  const matches = content.match(urlRegex);
+  const matches = factsText.match(urlRegex);
   if (matches) {
-    for (const u of matches) {
+    for (const urlStr of matches) {
       try {
-        const url = new URL(u);
+        const url = new URL(urlStr);
         const host = url.hostname.replace(/^www\./, '');
         if (!citations.includes(host)) citations.push(host);
       } catch {
-        if (!citations.includes(u)) citations.push(u);
+        if (!citations.includes(urlStr)) citations.push(urlStr);
       }
     }
   }
 
-  return { facts: content, citations, usage };
+  return { facts: factsText, citations, usage };
 }

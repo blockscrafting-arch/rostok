@@ -3,10 +3,11 @@
  * Опционально: референсное фото сорта — модель генерирует изображение на его основе.
  * Промпты и модель можно задать в Настройках; в промпте подставляются {headline} и {text} (текст статьи).
  */
-import { openrouter } from './client';
+import type OpenAI from 'openai';
 import { config } from '../config';
 import { logInfo, logWarn } from '../utils/logger';
 import { convertDriveUrlToDirectDownload } from '../utils/url';
+import { isFetchUrlAllowed } from '../utils/urlAllowlist';
 import type { TokenUsage } from '../types';
 import type { ChatCompletionContentPart } from 'openai/resources/chat/completions';
 
@@ -29,9 +30,12 @@ export interface ImageGenerationOptions {
   articleText?: string;
 }
 
-/** Скачать картинку по URL и вернуть как data URL (base64). */
+/** Скачать картинку по URL и вернуть как data URL (base64). Только разрешённые хосты. */
 async function fetchImageAsDataUrl(url: string): Promise<string> {
   const directUrl = convertDriveUrlToDirectDownload(url);
+  if (!isFetchUrlAllowed(directUrl)) {
+    throw new Error('URL not allowed for fetch (SSRF protection)');
+  }
   const resp = await fetch(directUrl);
   if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status}`);
   const buf = Buffer.from(await resp.arrayBuffer());
@@ -53,6 +57,7 @@ function applyPlaceholders(template: string, headline: string, text: string = ''
  * OpenRouter: chat/completions с modalities: ["image", "text"].
  */
 export async function generatePlantImage(
+  aiClient: OpenAI,
   plantNameOrHeadline: string,
   referenceImageUrl?: string,
   options: ImageGenerationOptions = {}
@@ -87,7 +92,7 @@ export async function generatePlantImage(
     headlinePreview: plantNameOrHeadline.slice(0, 60),
   });
 
-  const res = await openrouter.chat.completions.create({
+  const res = await aiClient.chat.completions.create({
     model,
     messages: [{ role: 'user', content: messageContent }],
     max_tokens: 4096,
@@ -106,7 +111,8 @@ export async function generatePlantImage(
     hasError: 'error' in resAny && resAny.error != null,
   });
   if (resAny.error != null) {
-    logWarn('Image API: response contains error field', { error: resAny.error });
+    const errStr = typeof resAny.error === 'string' ? resAny.error : JSON.stringify(resAny.error);
+    logWarn('Image API: response contains error field', { errorPreview: errStr.slice(0, 200) });
   }
   const msg = choice0?.message as
     | { content?: string | unknown[]; images?: Array<{ image_url?: { url?: string } }> }
@@ -164,13 +170,14 @@ export async function generatePlantImage(
       }
       return obj;
     };
+    const resAny = res as unknown as Record<string, unknown>;
     logWarn('Image API: no image in response, full message structure', {
       model,
       choiceFinishReason: res.choices[0]?.finish_reason,
       messageKeys: msgObj ? Object.keys(msgObj) : [],
       message: safeForLog(msg, 500),
       contentPreview,
-      responseError: (res as unknown as Record<string, unknown>).error ?? undefined,
+      responseError: resAny.error != null ? safeForLog(resAny.error, 200) : undefined,
     });
   } else {
     logInfo('Image API: image found', {

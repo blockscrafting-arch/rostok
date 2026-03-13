@@ -5,7 +5,7 @@ import 'dotenv/config';
 import { setRetryNotifier } from './utils/retry';
 import { notify } from './telegram/notifier';
 import { mainLoop, stopScheduler } from './scheduler/scheduler';
-import { logInfo, logWarn } from './utils/logger';
+import { logInfo, logWarn, serializeError } from './utils/logger';
 
 setRetryNotifier(notify);
 
@@ -23,6 +23,6 @@ process.on('SIGTERM', () => handleShutdown('SIGTERM'));
 
 logInfo('Content-Factory started');
 mainLoop().catch((e) => {
-  logInfo('Fatal', { error: e });
+  logInfo('Fatal', { errorMessage: serializeError(e).message });
   process.exit(1);
 });
