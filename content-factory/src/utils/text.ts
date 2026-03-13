@@ -27,3 +27,22 @@ export function truncateAtSentence(text: string, limit = 4000): string {
   if (cut > limit * 0.5) return text.slice(0, cut + 1).trimEnd();
   return text.slice(0, limit);
 }
+
+const CTA_MARKER = /\[ССЫЛКА НА КАТАЛОГ\]/gi;
+
+/**
+ * Заменяет маркер [ССЫЛКА НА КАТАЛОГ] на реальную UTM-ссылку.
+ * Если маркеров нет — добавляет ссылку в конец текста.
+ */
+export function insertCatalogLinks(text: string, utmUrl: string): string {
+  CTA_MARKER.lastIndex = 0;
+  if (!utmUrl.trim()) return text;
+  const hasMarker = CTA_MARKER.test(text);
+  CTA_MARKER.lastIndex = 0;
+  if (hasMarker) {
+    return text.replace(CTA_MARKER, utmUrl);
+  }
+  const trimmed = text.trimEnd();
+  if (!trimmed) return text;
+  return `${trimmed}\n\nПерейти на сайт: ${utmUrl}`;
+}

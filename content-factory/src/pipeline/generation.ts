@@ -11,7 +11,7 @@ import { writeTextResult, updateStatus, setStatusError } from '../sheets/writer'
 import { appendStatistics } from '../sheets/statistics';
 import { withRetry } from '../utils/retry';
 import { logInfo } from '../utils/logger';
-import { truncateAtSentence, cleanArticleFirstLine } from '../utils/text';
+import { truncateAtSentence, cleanArticleFirstLine, insertCatalogLinks } from '../utils/text';
 import type { Task } from '../types';
 import type { Settings } from '../types';
 
@@ -83,12 +83,12 @@ export async function generationPipeline(
     );
 
     const cleanedText = cleanArticleFirstLine(finalText);
-    if (cleanedText.length > 4000) {
-      logInfo('Text exceeded 4000 chars, truncating', { len: cleanedText.length });
-    }
-    const previewText = truncateAtSentence(cleanedText, 4000);
-
     const utmUrl = buildUtmUrl(headline, settings, task.keyword ?? '');
+    const textWithLinks = insertCatalogLinks(cleanedText, utmUrl);
+    if (textWithLinks.length > 4000) {
+      logInfo('Text exceeded 4000 chars, truncating', { len: textWithLinks.length });
+    }
+    const previewText = truncateAtSentence(textWithLinks, 4000);
     const textUsages = [usageGround, usageDraft, usageHumanize];
     const { costTextUsd } = splitCostUsd(textUsages, 0);
 
