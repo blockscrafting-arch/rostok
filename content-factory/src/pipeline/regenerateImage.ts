@@ -33,10 +33,12 @@ export async function regenerateImagePipeline(task: Task, settings: Settings): P
     referencePhotoUrl = Object.values(referencePhotoMap)[0] ?? '';
   }
 
+  const articleText = task.previewText ?? '';
   const imageOptions = {
     promptImage: settings.promptImage,
     promptImageWithReference: settings.promptImageWithReference,
     imageModel: settings.imageModel,
+    articleText,
   };
   logInfo('RegenerateImage pipeline: calling API', {
     rowIndex: task.rowIndex,

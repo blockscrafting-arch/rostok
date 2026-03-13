@@ -1,7 +1,7 @@
 /**
  * Генерация фотореалистичной картинки растения (Gemini 3.1 Flash Image Preview / image-capable model).
  * Опционально: референсное фото сорта — модель генерирует изображение на его основе.
- * Промпты и модель можно задать в Настройках; в промпте подставляется {headline}.
+ * Промпты и модель можно задать в Настройках; в промпте подставляются {headline} и {text} (текст статьи).
  */
 import { openrouter } from './client';
 import { config } from '../config';
@@ -25,6 +25,8 @@ export interface ImageGenerationOptions {
   promptImage?: string;
   promptImageWithReference?: string;
   imageModel?: string;
+  /** Текст статьи для подстановки в плейсхолдер {text}. */
+  articleText?: string;
 }
 
 /** Скачать картинку по URL и вернуть как data URL (base64). */
@@ -38,8 +40,10 @@ async function fetchImageAsDataUrl(url: string): Promise<string> {
   return `data:${contentType};base64,${base64}`;
 }
 
-function applyHeadline(template: string, headline: string): string {
-  return template.replace(/\{headline\}/g, headline);
+function applyPlaceholders(template: string, headline: string, text: string = ''): string {
+  return template
+    .replace(/\{headline\}/gi, headline)
+    .replace(/\{text\}/gi, text);
 }
 
 /**
@@ -55,9 +59,10 @@ export async function generatePlantImage(
 ): Promise<ImageResult> {
   const promptNoRef = (options.promptImage?.trim() || DEFAULT_PROMPT_NO_REF).trim();
   const promptWithRef = (options.promptImageWithReference?.trim() || DEFAULT_PROMPT_WITH_REF).trim();
+  const articleText = options.articleText ?? '';
   const textPrompt = referenceImageUrl
-    ? applyHeadline(promptWithRef, plantNameOrHeadline)
-    : applyHeadline(promptNoRef, plantNameOrHeadline);
+    ? applyPlaceholders(promptWithRef, plantNameOrHeadline, articleText)
+    : applyPlaceholders(promptNoRef, plantNameOrHeadline, articleText);
 
   let messageContent: string | ChatCompletionContentPart[];
   if (referenceImageUrl) {
