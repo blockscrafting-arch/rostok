@@ -20,6 +20,11 @@ const worker = new Worker<PublishJobPayload>(
 );
 
 worker.on('failed', (job, err) => {
+  const maxAttempts = job?.opts?.attempts ?? 1;
+  if (job && job.attemptsMade < maxAttempts) {
+    logInfo('Publish worker attempt failed, will retry', { jobId: job.id, attemptsMade: job.attemptsMade, maxAttempts });
+    return;
+  }
   const payload = job?.data as PublishJobPayload | undefined;
   const msg = serializeError(err).message;
   logInfo('Publish worker error', {

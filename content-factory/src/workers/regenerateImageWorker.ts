@@ -20,6 +20,11 @@ const worker = new Worker<RegenerateImageJobPayload>(
 );
 
 worker.on('failed', (job, err) => {
+  const maxAttempts = job?.opts?.attempts ?? 1;
+  if (job && job.attemptsMade < maxAttempts) {
+    logInfo('Regenerate image worker attempt failed, will retry', { jobId: job.id, attemptsMade: job.attemptsMade, maxAttempts });
+    return;
+  }
   const payload = job?.data as RegenerateImageJobPayload | undefined;
   const msg = serializeError(err).message;
   logInfo('Regenerate image worker error', {
