@@ -1,5 +1,5 @@
 // Контент-Завод 2.0 — мульти-клиент. PostgreSQL.
-// Prisma 5.x, CommonJS-совместимый проект.
+// Prisma 6.x, CommonJS-совместимый проект.
 
 generator client {
   provider = "prisma-client-js"

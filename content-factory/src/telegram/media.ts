@@ -1,12 +1,13 @@
 /**
  * Скачивание голосовых и видеокружочков из Telegram, конвертация в mp3 и транскрибация через OpenRouter (Gemini).
+ * Конвертация через child_process.spawn (без deprecated fluent-ffmpeg).
  */
+import * as childProcess from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
-import ffmpeg from 'fluent-ffmpeg';
 import { config } from '../config';
 
 const TRANSCRIBE_PROMPT = `Ты — профессиональный транскрибатор. Твоя задача — точно перевести речь из прикрепленного аудио в текст.
@@ -49,16 +50,26 @@ export async function downloadAndConvertToMp3Base64(fileLinkUrl: string): Promis
   const FFMPEG_TIMEOUT_MS = 60_000;
   try {
     const ffmpegPath = getFfmpegPath();
-    ffmpeg.setFfmpegPath(ffmpegPath);
+    let proc: childProcess.ChildProcess | null = null;
     const ffmpegPromise = new Promise<void>((resolve, reject) => {
-      ffmpeg(tempIn)
-        .toFormat('mp3')
-        .on('end', () => resolve())
-        .on('error', (err: Error) => reject(err))
-        .save(tempOut);
+      proc = childProcess.spawn(ffmpegPath, ['-y', '-i', tempIn, '-f', 'mp3', tempOut], {
+        stdio: 'ignore',
+      });
+      proc.on('error', reject);
+      proc.on('close', (code, signal) => {
+        proc = null;
+        if (code === 0) resolve();
+        else reject(new Error(signal ? `ffmpeg ${signal}` : `ffmpeg exit ${code}`));
+      });
     });
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('ffmpeg timeout')), FFMPEG_TIMEOUT_MS);
+      setTimeout(() => {
+        if (proc) {
+          proc.kill('SIGKILL');
+          proc = null;
+        }
+        reject(new Error('ffmpeg timeout'));
+      }, FFMPEG_TIMEOUT_MS);
     });
     await Promise.race([ffmpegPromise, timeoutPromise]);
     const outBuf = fs.readFileSync(tempOut);

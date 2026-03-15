@@ -5,33 +5,33 @@ import { Worker } from 'bullmq';
 import { connectionForBullMQ, regenerateImageQueue } from '../queue';
 import { regenerateImagePipeline } from '../pipeline/regenerateImage';
 import { buildContextFromPayload } from './context';
+import { loadTaskAndSettings } from './loadJobData';
 import { logInfo, logToSheet, serializeError, getApiErrorResponsePreview } from '../utils/logger';
-import type { ImageJobPayload } from '../queue/types';
+import type { RegenerateImageJobPayload } from '../queue/types';
 
-const worker = new Worker<ImageJobPayload>(
+const worker = new Worker<RegenerateImageJobPayload>(
   regenerateImageQueue.name,
   async (job) => {
-    const { task, settings, ...ctxPayload } = job.data;
-    const context = buildContextFromPayload(ctxPayload);
+    const { task, settings } = await loadTaskAndSettings(job.data);
+    const context = buildContextFromPayload(job.data);
     await regenerateImagePipeline(task, settings, context);
   },
   { connection: connectionForBullMQ, concurrency: 2 }
 );
 
 worker.on('failed', (job, err) => {
-  const payload = job?.data as ImageJobPayload | undefined;
+  const payload = job?.data as RegenerateImageJobPayload | undefined;
   const msg = serializeError(err).message;
-  const label = payload?.task?.headline ?? payload?.task?.keyword ?? '?';
   logInfo('Regenerate image worker error', {
     jobId: job?.id,
-    label,
+    rowIndex: payload?.rowIndex,
     errorMessage: msg,
     responsePreview: getApiErrorResponsePreview(err),
   });
   const logSheetOpt = payload?.spreadsheetId ? { spreadsheetId: payload.spreadsheetId } : undefined;
-  logToSheet('RegenerateImage', 'error', `${label}: ${msg}`.slice(0, 500), logSheetOpt).catch(() => {});
+  logToSheet('RegenerateImage', 'error', `row ${payload?.rowIndex ?? '?'}: ${msg}`.slice(0, 500), logSheetOpt).catch(() => {});
 });
 
-export function startRegenerateImageWorker(): Worker<ImageJobPayload> {
+export function startRegenerateImageWorker(): Worker<RegenerateImageJobPayload> {
   return worker;
 }

@@ -32,12 +32,11 @@ function todayKey(): string {
   return `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
-/** Проверка: наступило ли время сводки (например "21:00"). */
+/** Проверка: наступило ли время сводки (например "21:00"). Невалидная строка — считаем, что не наступило. */
 function isAfterSummaryTime(summaryTime: string): boolean {
-  const [h, m] = summaryTime.split(':').map((x) => parseInt(x, 10) || 0);
-  const now = new Date();
-  const nowM = now.getHours() * 60 + now.getMinutes();
-  const targetM = h * 60 + m;
+  const targetM = parseTimeHHMM(summaryTime);
+  if (targetM === null) return false;
+  const nowM = minutesSinceMidnight(new Date());
   return nowM >= targetM;
 }
 
@@ -47,12 +46,12 @@ const IMAGE_GENERATION_WINDOW_MINUTES = 60;
 /**
  * Проверка: текущее время в окне для генерации картинок по расписанию.
  * Например при generationTime "05:00" и окне 60 мин — только с 5:00 до 6:00, не в 14:30.
+ * Невалидное время (например "25:00") — окно не активно (false).
  */
 function isWithinImageGenerationWindow(timeStr: string, windowMinutes: number): boolean {
-  const [h, m] = timeStr.split(':').map((x) => parseInt(x, 10) || 0);
-  const now = new Date();
-  const nowM = now.getHours() * 60 + now.getMinutes();
-  const startM = h * 60 + m;
+  const startM = parseTimeHHMM(timeStr);
+  if (startM === null) return false;
+  const nowM = minutesSinceMidnight(new Date());
   const endM = startM + windowMinutes;
   if (endM <= 24 * 60) {
     return nowM >= startM && nowM < endM;
@@ -159,11 +158,11 @@ async function runPipelinesForClient(
   };
 
   for (const task of tasks.filter((t) => t.status === 'Новое').reverse()) {
-    await semanticsQueue.add('semantics', { ...ctxPayload, task, settings });
+    await semanticsQueue.add('semantics', { ...ctxPayload, rowIndex: task.rowIndex });
   }
 
   for (const task of tasks.filter((t) => t.status === 'Согласован заголовок')) {
-    await generationQueue.add('generate-text', { ...ctxPayload, task, settings, options: { isRevision: false } });
+    await generationQueue.add('generate-text', { ...ctxPayload, rowIndex: task.rowIndex, options: { isRevision: false } });
   }
 
   const imagePending = tasks.filter((t) => t.status === 'Текст готов, ждём картинку');
@@ -180,14 +179,13 @@ async function runPipelinesForClient(
   }
   for (const task of imagePending) {
     if (!canRunImageGeneration) break;
-    await imageQueue.add('generate-image', { ...ctxPayload, task, settings });
+    await imageQueue.add('generate-image', { ...ctxPayload, rowIndex: task.rowIndex });
   }
 
   for (const task of tasks.filter((t) => t.status === 'На доработку')) {
     await generationQueue.add('revision', {
       ...ctxPayload,
-      task,
-      settings,
+      rowIndex: task.rowIndex,
       options: { isRevision: true, editorComment: task.comment ?? undefined },
     });
   }
@@ -195,14 +193,13 @@ async function runPipelinesForClient(
   for (const task of tasks.filter((t) => t.status === 'Перегенерировать текст')) {
     await generationQueue.add('regenerate-text', {
       ...ctxPayload,
-      task,
-      settings,
+      rowIndex: task.rowIndex,
       options: { isRevision: true, editorComment: task.comment ?? undefined, keepImage: true },
     });
   }
 
   for (const task of tasks.filter((t) => t.status === 'Перегенерировать картинку')) {
-    await regenerateImageQueue.add('regenerate-image', { ...ctxPayload, task, settings });
+    await regenerateImageQueue.add('regenerate-image', { ...ctxPayload, rowIndex: task.rowIndex });
   }
 
   const approved = tasks.filter((t) => t.status === 'Одобрено на публикацию');
@@ -239,7 +236,7 @@ async function runPipelinesForClient(
     }
   }
   for (const task of toPublish) {
-    await publishQueue.add('publish', { ...ctxPayload, task });
+    await publishQueue.add('publish', { ...ctxPayload, rowIndex: task.rowIndex });
     publishedToday += 1;
     lastPublishedAt = Date.now();
     lastPublishSkippedReason = '';
