@@ -111,7 +111,8 @@ export async function regenerateImagePipeline(
             logInfo('RegenerateImage pipeline: logo applied', { rowIndex: task.rowIndex, bufBytes: buf.length });
           }
         }
-        const key = `article-${task.rowIndex}-${Date.now()}.png`;
+        const clientPrefix = context?.clientId !== undefined && context.clientId !== '' ? `clients/${context.clientId}/` : 'clients/single/';
+        const key = `${clientPrefix}images/article-${task.rowIndex}-${Date.now()}.png`;
         logInfo('RegenerateImage pipeline: uploading to S3', { rowIndex: task.rowIndex, key, bufBytes: buf.length });
         imageUrl = await withRetry(() => uploadImage(buf, key), 'S3');
         logInfo('RegenerateImage pipeline: S3 result', { rowIndex: task.rowIndex, imageUrlLength: imageUrl?.length ?? 0 });
