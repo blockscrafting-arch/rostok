@@ -2,8 +2,7 @@
  * Воркер очереди перегенерации картинки.
  */
 import { Worker } from 'bullmq';
-import { connection } from '../queue';
-import { regenerateImageQueue } from '../queue';
+import { connectionForBullMQ, regenerateImageQueue } from '../queue';
 import { regenerateImagePipeline } from '../pipeline/regenerateImage';
 import { buildContextFromPayload } from './context';
 import { logInfo, logToSheet, serializeError, getApiErrorResponsePreview } from '../utils/logger';
@@ -16,7 +15,7 @@ const worker = new Worker<ImageJobPayload>(
     const context = buildContextFromPayload(ctxPayload);
     await regenerateImagePipeline(task, settings, context);
   },
-  { connection, concurrency: 2 }
+  { connection: connectionForBullMQ, concurrency: 2 }
 );
 
 worker.on('failed', (job, err) => {

@@ -2,8 +2,7 @@
  * Воркер очереди публикации: одобренная статья → Telegram → статус «Опубликовано».
  */
 import { Worker } from 'bullmq';
-import { connection } from '../queue';
-import { publishQueue } from '../queue';
+import { connectionForBullMQ, publishQueue } from '../queue';
 import { publishingPipeline } from '../pipeline/publishing';
 import { buildContextFromPayload } from './context';
 import { logInfo, logToSheet, serializeError, getApiErrorResponsePreview } from '../utils/logger';
@@ -16,7 +15,7 @@ const worker = new Worker<PublishJobPayload>(
     const context = buildContextFromPayload(ctxPayload);
     await publishingPipeline(task, context);
   },
-  { connection, concurrency: 1 }
+  { connection: connectionForBullMQ, concurrency: 1 }
 );
 
 worker.on('failed', (job, err) => {

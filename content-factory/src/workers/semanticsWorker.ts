@@ -2,8 +2,7 @@
  * Воркер очереди семантики: ключевое слово → заголовки → таблица.
  */
 import { Worker } from 'bullmq';
-import { connection } from '../queue';
-import { semanticsQueue } from '../queue';
+import { connectionForBullMQ, semanticsQueue } from '../queue';
 import { semanticsPipeline } from '../pipeline/semantics';
 import { buildContextFromPayload } from './context';
 import { logInfo, logToSheet, serializeError, getApiErrorResponsePreview } from '../utils/logger';
@@ -16,7 +15,7 @@ const worker = new Worker<SemanticsJobPayload>(
     const context = buildContextFromPayload(ctxPayload);
     await semanticsPipeline(task, settings, context);
   },
-  { connection, concurrency: 3 }
+  { connection: connectionForBullMQ, concurrency: 3 }
 );
 
 worker.on('failed', (job, err) => {

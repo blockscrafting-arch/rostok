@@ -9,7 +9,7 @@ import { prisma } from '../db/client';
 import { downloadAndConvertToMp3Base64, transcribeAudio } from './media';
 import { extractClientSettings } from '../ai/extractor';
 import { createClientTable } from '../sheets/templateCopier';
-import { logInfo, logWarn } from '../utils/logger';
+import { logInfo, logWarn, serializeError } from '../utils/logger';
 import {
   getOnboardingSession,
   setOnboardingSession,
@@ -24,6 +24,44 @@ export function isValidEmail(email: string): boolean {
 
 function getChatId(ctx: Context): number | undefined {
   return ctx.chat?.id;
+}
+
+/** Список chat ID для уведомлений админов (TELEGRAM_NOTIFY_CHAT_ID — один или несколько через запятую). */
+function getNotifyChatIds(): string[] {
+  return config.telegram.notifyChatId
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
+}
+
+/** Отправить админам уведомление о новом заполненном брифе (от имени онбординг-бота). */
+async function notifyAdminsAboutNewBrief(
+  bot: InstanceType<typeof Telegraf>,
+  payload: { clientName: string; email: string; niche: string; spreadsheetUrl?: string }
+): Promise<void> {
+  const chatIds = getNotifyChatIds();
+  if (chatIds.length === 0) return;
+  const linkLine = payload.spreadsheetUrl
+    ? `Ссылка на таблицу: ${payload.spreadsheetUrl}`
+    : 'Таблица: будет создана администратором.';
+  const text = [
+    'Новый клиент заполнил бриф!',
+    `Имя: ${payload.clientName}`,
+    `Email: ${payload.email}`,
+    `Ниша: ${payload.niche}`,
+    linkLine,
+  ].join('\n');
+  const results = await Promise.allSettled(
+    chatIds.map((chatId) => bot.telegram.sendMessage(chatId, text))
+  );
+  results.forEach((r, i) => {
+    if (r.status === 'rejected') {
+      logWarn('Onboarding admin notify failed', {
+        chatId: chatIds[i],
+        errorMessage: serializeError(r.reason).message,
+      });
+    }
+  });
 }
 
 export function launchOnboardingBot(): void {
@@ -109,6 +147,12 @@ export function launchOnboardingBot(): void {
           await ctx.reply(
             `Готово! Ваша таблица управления: ${spreadsheetUrl}\n\nДобавьте свой OpenRouter API Key в настройки (администратор подскажет, как).`
           );
+          await notifyAdminsAboutNewBrief(bot, {
+            clientName,
+            email,
+            niche,
+            spreadsheetUrl,
+          });
         } else {
           await prisma.client.update({
             where: { id: client.id },
@@ -117,6 +161,11 @@ export function launchOnboardingBot(): void {
           await ctx.reply(
             'Бриф сохранён. Администратор создаст для вас таблицу и вышлет ссылку. Не забудьте добавить OpenRouter API Key.'
           );
+          await notifyAdminsAboutNewBrief(bot, {
+            clientName,
+            email,
+            niche,
+          });
         }
         await deleteOnboardingSession(chatId);
       } catch (e) {

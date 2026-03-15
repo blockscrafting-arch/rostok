@@ -9,8 +9,8 @@ RUN npm run build
 
 FROM node:20-slim
 WORKDIR /app
-# Устанавливаем openssl (требуется для Prisma)
-RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+# Устанавливаем openssl (Prisma), ffmpeg (транскрибация голоса/видео в онбординге)
+RUN apt-get update && apt-get install -y openssl ffmpeg && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 COPY prisma ./prisma

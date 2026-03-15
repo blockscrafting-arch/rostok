@@ -2,8 +2,7 @@
  * Воркер очереди генерации картинки: текст готов → картинка → S3 → таблица.
  */
 import { Worker } from 'bullmq';
-import { connection } from '../queue';
-import { imageQueue } from '../queue';
+import { connectionForBullMQ, imageQueue } from '../queue';
 import { imageGenerationPipeline } from '../pipeline/imageGeneration';
 import { buildContextFromPayload } from './context';
 import { logInfo, logToSheet, serializeError, getApiErrorResponsePreview } from '../utils/logger';
@@ -16,7 +15,7 @@ const worker = new Worker<ImageJobPayload>(
     const context = buildContextFromPayload(ctxPayload);
     await imageGenerationPipeline(task, settings, context);
   },
-  { connection, concurrency: 2 }
+  { connection: connectionForBullMQ, concurrency: 2 }
 );
 
 worker.on('failed', (job, err) => {

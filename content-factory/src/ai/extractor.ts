@@ -57,10 +57,16 @@ export async function extractClientSettings(answers: string[]): Promise<Extracte
   }
   const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
   const raw = data.choices?.[0]?.message?.content?.trim() ?? '{}';
-  const cleaned = raw.replace(/^```json\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+  const withoutMarkdown = raw.replace(/^```json\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+  const firstBrace = withoutMarkdown.indexOf('{');
+  const lastBrace = withoutMarkdown.lastIndexOf('}');
+  const jsonSlice =
+    firstBrace >= 0 && lastBrace > firstBrace
+      ? withoutMarkdown.slice(firstBrace, lastBrace + 1)
+      : withoutMarkdown;
   let parsed: Record<string, unknown>;
   try {
-    parsed = JSON.parse(cleaned) as Record<string, unknown>;
+    parsed = JSON.parse(jsonSlice) as Record<string, unknown>;
   } catch (parseErr) {
     logWarn('extractClientSettings: invalid JSON from LLM', { raw: raw.slice(0, 500), error: (parseErr as Error).message });
     return {
@@ -71,8 +77,8 @@ export async function extractClientSettings(answers: string[]): Promise<Extracte
       logoUrl: null,
     };
   }
-  const logoUrlRaw = typeof parsed.logoUrl === 'string' ? parsed.logoUrl : null;
-  const logoUrl = logoUrlRaw && isFetchUrlAllowed(logoUrlRaw) ? logoUrlRaw : null;
+  const logoUrlRaw = typeof parsed.logoUrl === 'string' ? parsed.logoUrl.trim() : null;
+  const logoUrl = logoUrlRaw && logoUrlRaw !== '' && isFetchUrlAllowed(logoUrlRaw) ? logoUrlRaw : null;
   return {
     dnaBrand: String(parsed.dnaBrand ?? ''),
     productDetails: String(parsed.productDetails ?? ''),

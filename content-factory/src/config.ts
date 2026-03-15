@@ -28,12 +28,16 @@ export const config = {
     spreadsheetId: env('SPREADSHEET_ID'),
     /** ID эталонной таблицы для копирования новым клиентам (опционально). */
     templateSpreadsheetId: envOptional('TEMPLATE_SPREADSHEET_ID'),
+    /** Email админа — всегда выдаётся доступ writer к новым таблицам клиентов. */
+    adminEmail: envOptional('ADMIN_GOOGLE_EMAIL'),
   },
   openrouter: {
     apiKey: env('OPENROUTER_API_KEY'),
     groundingModel: env('OPENROUTER_GROUNDING_MODEL', 'perplexity/sonar'),
     textModel: env('OPENROUTER_TEXT_MODEL', 'deepseek/deepseek-chat'),
     imageModel: env('OPENROUTER_IMAGE_MODEL', 'google/gemini-3.1-flash-image-preview'),
+    /** Модель для транскрибации голоса/видео (поддержка input_audio). */
+    transcriptionModel: envOptional('OPENROUTER_TRANSCRIPTION_MODEL', 'google/gemini-2.5-flash'),
   },
   yandex: {
     oauthToken: envOptional('YANDEX_OAUTH_TOKEN'),

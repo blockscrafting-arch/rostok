@@ -4,6 +4,8 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { Readable } from 'stream';
+import { pipeline } from 'stream/promises';
 import ffmpeg from 'fluent-ffmpeg';
 import { config } from '../config';
 
@@ -26,6 +28,7 @@ function getFfmpegPath(): string {
 
 /**
  * Скачать файл из Telegram по file_id, конвертировать аудиодорожку в mp3 и вернуть base64.
+ * Скачивание — потоком на диск (без загрузки всего файла в память).
  * @param fileLinkUrl — URL файла (результат getFileLink).
  */
 export async function downloadAndConvertToMp3Base64(fileLinkUrl: string): Promise<string> {
@@ -33,22 +36,31 @@ export async function downloadAndConvertToMp3Base64(fileLinkUrl: string): Promis
   if (!res.ok) {
     throw new Error(`Failed to download file: ${res.status}`);
   }
-  const arrayBuf = await res.arrayBuffer();
-  const inputBuf = Buffer.from(arrayBuf);
   const ext = fileLinkUrl.includes('.oga') || fileLinkUrl.includes('voice') ? '.ogg' : '.mp4';
   const tempIn = path.join(os.tmpdir(), `tg-in-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
   const tempOut = path.join(os.tmpdir(), `tg-out-${Date.now()}.mp3`);
-  fs.writeFileSync(tempIn, inputBuf);
+  const body = res.body;
+  if (!body) {
+    throw new Error('Response has no body');
+  }
+  const nodeReadable = Readable.fromWeb(body as import('stream/web').ReadableStream);
+  const writeStream = fs.createWriteStream(tempIn);
+  await pipeline(nodeReadable, writeStream);
+  const FFMPEG_TIMEOUT_MS = 60_000;
   try {
     const ffmpegPath = getFfmpegPath();
     ffmpeg.setFfmpegPath(ffmpegPath);
-    await new Promise<void>((resolve, reject) => {
+    const ffmpegPromise = new Promise<void>((resolve, reject) => {
       ffmpeg(tempIn)
         .toFormat('mp3')
         .on('end', () => resolve())
         .on('error', (err: Error) => reject(err))
         .save(tempOut);
     });
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('ffmpeg timeout')), FFMPEG_TIMEOUT_MS);
+    });
+    await Promise.race([ffmpegPromise, timeoutPromise]);
     const outBuf = fs.readFileSync(tempOut);
     return outBuf.toString('base64');
   } finally {
@@ -63,7 +75,7 @@ export async function downloadAndConvertToMp3Base64(fileLinkUrl: string): Promis
 export async function transcribeAudio(base64Audio: string): Promise<string> {
   const apiKey = config.openrouter.apiKey;
   const body = {
-    model: 'google/gemini-2.5-flash',
+    model: config.openrouter.transcriptionModel || 'google/gemini-2.5-flash',
     messages: [
       {
         role: 'user' as const,

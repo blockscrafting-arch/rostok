@@ -2,8 +2,7 @@
  * Воркер очереди генерации текста: заголовок → граундинг → черновик → очеловечивание → таблица.
  */
 import { Worker } from 'bullmq';
-import { connection } from '../queue';
-import { generationQueue } from '../queue';
+import { connectionForBullMQ, generationQueue } from '../queue';
 import { generationPipeline } from '../pipeline/generation';
 import { buildContextFromPayload } from './context';
 import { logInfo, logToSheet, serializeError, getApiErrorResponsePreview } from '../utils/logger';
@@ -16,7 +15,7 @@ const worker = new Worker<GenerationJobPayload>(
     const context = buildContextFromPayload(ctxPayload);
     await generationPipeline(task, settings, options ?? {}, context);
   },
-  { connection, concurrency: 2 }
+  { connection: connectionForBullMQ, concurrency: 2 }
 );
 
 worker.on('failed', (job, err) => {
