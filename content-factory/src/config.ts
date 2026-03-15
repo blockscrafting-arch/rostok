@@ -49,6 +49,11 @@ export const config = {
     botToken: env('TELEGRAM_BOT_TOKEN'),
     channelId: env('TELEGRAM_CHANNEL_ID'),
     notifyChatId: env('TELEGRAM_NOTIFY_CHAT_ID'),
+    /** Токен бота для онбординга новых клиентов (отдельный бот от BotFather). */
+    onboardingBotToken: envOptional('ONBOARDING_BOT_TOKEN'),
+  },
+  redis: {
+    url: envOptional('REDIS_URL', 'redis://localhost:6379'),
   },
   schedule: {
     pollIntervalMs: envNum('POLL_INTERVAL_MS', 60_000),

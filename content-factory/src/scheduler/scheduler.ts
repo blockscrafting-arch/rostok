@@ -1,23 +1,27 @@
 /**
- * Главный цикл: polling Google Sheets, запуск пайплайнов по статусам.
+ * Главный цикл: polling Google Sheets, постановка задач в очереди BullMQ.
+ * Воркеры обрабатывают пайплайны (семантика, текст, картинка, публикация).
  * Учёт maxArticlesPerDay, вызов ежедневной сводки по dailySummaryTime.
- * Мульти-клиент: при наличии DATABASE_URL и активных клиентов с spreadsheetId — цикл по клиентам, иначе одна таблица из config.
  */
 import { readTasks } from '../sheets/tasks';
 import { readSettings } from '../sheets/settings';
-import { semanticsPipeline } from '../pipeline/semantics';
-import { generationPipeline } from '../pipeline/generation';
-import { imageGenerationPipeline } from '../pipeline/imageGeneration';
-import { regenerateImagePipeline } from '../pipeline/regenerateImage';
-import { publishingPipeline } from '../pipeline/publishing';
 import { sendDailySummary } from '../telegram/notifier';
 import { sleep } from '../utils/sleep';
 import { logInfo, logToSheet, serializeError, getApiErrorResponsePreview } from '../utils/logger';
 import { getAdminSettings } from '../db/repositories/adminSettings';
 import { getActiveClientsWithSettings } from '../db/repositories/clients';
 import { mergeSettings } from '../settings/mergeSettings';
-import { createOpenRouterClient } from '../ai/clientFactory';
+import {
+  semanticsQueue,
+  generationQueue,
+  imageQueue,
+  regenerateImageQueue,
+  publishQueue,
+} from '../queue';
+import { config } from '../config';
+import { getPublishState, setPublishState, type PublishState } from '../redis/publishState';
 import type { Settings } from '../types';
+import type { QueueContextPayload } from '../queue/types';
 
 /** Дата в локальной таймзоне (при TZ=Europe/Moscow — по Москве) для сброса лимита статей в день. */
 function todayKey(): string {
@@ -118,19 +122,17 @@ export function stopScheduler(): void {
 
 const PUBLISH_SKIPPED_LOG_THROTTLE_MS = 5 * 60 * 1000; // 5 минут
 
-/** Состояние лимита публикаций для одного клиента (или одной таблицы). */
-interface PublishState {
-  publishedToday: number;
-  lastPublishedAt: number;
-  lastDateKey: string;
-  lastPublishSkippedLogAt: number;
-  lastPublishSkippedReason: string;
+/** Контекст для постановки задач в очереди (clientId и API key для воркеров). */
+interface QueueContext {
+  clientId: string;
+  openrouterApiKey: string;
 }
 
 async function runPipelinesForClient(
   settings: Settings,
   tasks: Awaited<ReturnType<typeof readTasks>>,
-  context: { aiClient: ReturnType<typeof createOpenRouterClient>; sheetContext: { spreadsheetId: string }; telegramChannelId?: string } | undefined,
+  context: { sheetContext: { spreadsheetId: string }; telegramChannelId?: string } | undefined,
+  queueContext: QueueContext,
   state: PublishState,
   dailyErrors: string[],
   today: string
@@ -148,28 +150,20 @@ async function runPipelinesForClient(
     lastDateKey = today;
   }
 
-  const logSheetOpt = context?.sheetContext?.spreadsheetId ? { spreadsheetId: context.sheetContext.spreadsheetId } : undefined;
+  const spreadsheetId = context?.sheetContext?.spreadsheetId ?? '';
+  const ctxPayload: QueueContextPayload = {
+    clientId: queueContext.clientId,
+    spreadsheetId,
+    openrouterApiKey: queueContext.openrouterApiKey,
+    telegramChannelId: context?.telegramChannelId,
+  };
 
   for (const task of tasks.filter((t) => t.status === 'Новое').reverse()) {
-    try {
-      await semanticsPipeline(task, settings, context);
-    } catch (e) {
-      const { message: msg } = serializeError(e);
-      dailyErrors.push(`Semantics: ${task.keyword} — ${msg}`);
-      logInfo('Semantics pipeline error', { task: task.keyword, errorMessage: serializeError(e).message, responsePreview: getApiErrorResponsePreview(e) });
-      logToSheet('Semantics', 'error', `${task.keyword}: ${msg}`.slice(0, 500), logSheetOpt).catch(() => {});
-    }
+    await semanticsQueue.add('semantics', { ...ctxPayload, task, settings });
   }
 
   for (const task of tasks.filter((t) => t.status === 'Согласован заголовок')) {
-    try {
-      await generationPipeline(task, settings, { isRevision: false }, context);
-    } catch (e) {
-      const { message: msg } = serializeError(e);
-      dailyErrors.push(`Generation: ${task.headline ?? task.keyword} — ${msg}`);
-      logInfo('Generation pipeline error', { task: task.headline, errorMessage: serializeError(e).message, responsePreview: getApiErrorResponsePreview(e) });
-      logToSheet('Generation', 'error', `${task.headline ?? task.keyword}: ${msg}`.slice(0, 500), logSheetOpt).catch(() => {});
-    }
+    await generationQueue.add('generate-text', { ...ctxPayload, task, settings, options: { isRevision: false } });
   }
 
   const imagePending = tasks.filter((t) => t.status === 'Текст готов, ждём картинку');
@@ -186,47 +180,29 @@ async function runPipelinesForClient(
   }
   for (const task of imagePending) {
     if (!canRunImageGeneration) break;
-    try {
-      await imageGenerationPipeline(task, settings, context);
-    } catch (e) {
-      const { message: msg } = serializeError(e);
-      dailyErrors.push(`Image: ${task.headline ?? task.keyword} — ${msg}`);
-      logInfo('Image generation pipeline error', { task: task.headline, errorMessage: serializeError(e).message, responsePreview: getApiErrorResponsePreview(e) });
-      logToSheet('ImageGeneration', 'error', `${task.headline ?? task.keyword}: ${msg}`.slice(0, 500), logSheetOpt).catch(() => {});
-    }
+    await imageQueue.add('generate-image', { ...ctxPayload, task, settings });
   }
 
   for (const task of tasks.filter((t) => t.status === 'На доработку')) {
-    try {
-      await generationPipeline(task, settings, { isRevision: true, editorComment: task.comment ?? undefined }, context);
-    } catch (e) {
-      const { message: msg } = serializeError(e);
-      dailyErrors.push(`Revision: ${task.headline ?? task.keyword} — ${msg}`);
-      logInfo('Revision pipeline error', { task: task.headline, errorMessage: serializeError(e).message, responsePreview: getApiErrorResponsePreview(e) });
-      logToSheet('Revision', 'error', `${task.headline ?? task.keyword}: ${msg}`.slice(0, 500), logSheetOpt).catch(() => {});
-    }
+    await generationQueue.add('revision', {
+      ...ctxPayload,
+      task,
+      settings,
+      options: { isRevision: true, editorComment: task.comment ?? undefined },
+    });
   }
 
   for (const task of tasks.filter((t) => t.status === 'Перегенерировать текст')) {
-    try {
-      await generationPipeline(task, settings, { isRevision: true, editorComment: task.comment ?? undefined, keepImage: true }, context);
-    } catch (e) {
-      const { message: msg } = serializeError(e);
-      dailyErrors.push(`Regenerate text: ${task.headline ?? task.keyword} — ${msg}`);
-      logInfo('Regenerate text pipeline error', { task: task.headline, errorMessage: serializeError(e).message, responsePreview: getApiErrorResponsePreview(e) });
-      logToSheet('RegenerateText', 'error', `${task.headline ?? task.keyword}: ${msg}`.slice(0, 500), logSheetOpt).catch(() => {});
-    }
+    await generationQueue.add('regenerate-text', {
+      ...ctxPayload,
+      task,
+      settings,
+      options: { isRevision: true, editorComment: task.comment ?? undefined, keepImage: true },
+    });
   }
 
   for (const task of tasks.filter((t) => t.status === 'Перегенерировать картинку')) {
-    try {
-      await regenerateImagePipeline(task, settings, context);
-    } catch (e) {
-      const { message: msg } = serializeError(e);
-      dailyErrors.push(`Regenerate image: ${task.headline ?? task.keyword} — ${msg}`);
-      logInfo('Regenerate image pipeline error', { task: task.headline, errorMessage: serializeError(e).message, responsePreview: getApiErrorResponsePreview(e) });
-      logToSheet('RegenerateImage', 'error', `${task.headline ?? task.keyword}: ${msg}`.slice(0, 500), logSheetOpt).catch(() => {});
-    }
+    await regenerateImageQueue.add('regenerate-image', { ...ctxPayload, task, settings });
   }
 
   const approved = tasks.filter((t) => t.status === 'Одобрено на публикацию');
@@ -263,18 +239,11 @@ async function runPipelinesForClient(
     }
   }
   for (const task of toPublish) {
-    try {
-      await publishingPipeline(task, context ?? undefined);
-      publishedToday += 1;
-      lastPublishedAt = Date.now();
-      lastPublishSkippedReason = '';
-      lastPublishSkippedLogAt = 0;
-    } catch (e) {
-      const { message: msg } = serializeError(e);
-      dailyErrors.push(`Publish: ${task.headline ?? task.keyword} — ${msg}`);
-      logInfo('Publishing pipeline error', { task: task.headline, errorMessage: serializeError(e).message, responsePreview: getApiErrorResponsePreview(e) });
-      logToSheet('Publish', 'error', `${task.headline ?? task.keyword}: ${msg}`.slice(0, 500), logSheetOpt).catch(() => {});
-    }
+    await publishQueue.add('publish', { ...ctxPayload, task });
+    publishedToday += 1;
+    lastPublishedAt = Date.now();
+    lastPublishSkippedReason = '';
+    lastPublishSkippedLogAt = 0;
   }
 
   return {
@@ -289,15 +258,6 @@ async function runPipelinesForClient(
 export async function mainLoop(): Promise<void> {
   let dailySummarySentDate = '';
   const dailyErrors: string[] = [];
-  /** Состояние публикаций по clientId (мульти-клиент) или единственный ключ '' (одна таблица). */
-  const publishStateByClient = new Map<string, PublishState>();
-  const defaultState = (): PublishState => ({
-    publishedToday: 0,
-    lastPublishedAt: 0,
-    lastDateKey: '',
-    lastPublishSkippedLogAt: 0,
-    lastPublishSkippedReason: '',
-  });
 
   while (isRunning) {
     try {
@@ -319,24 +279,27 @@ export async function mainLoop(): Promise<void> {
             const settings = mergeSettings(admin, client, client.settings);
             pollIntervalMs = settings.pollInterval;
             summaryTime = settings.dailySummaryTime;
-            const aiClient = createOpenRouterClient(client.openrouterApiKey);
             const sheetContext = { spreadsheetId: client.spreadsheetId };
             const context = {
-              aiClient,
               sheetContext,
               telegramChannelId: client.telegramChannelId ?? undefined,
             };
+            const queueContext: QueueContext = {
+              clientId: client.id,
+              openrouterApiKey: client.openrouterApiKey,
+            };
             const tasks = await readTasks({ spreadsheetId: client.spreadsheetId });
-            const state = publishStateByClient.get(client.id) ?? defaultState();
+            const state = await getPublishState(client.id);
             const nextState = await runPipelinesForClient(
               settings,
               tasks,
               context,
+              queueContext,
               state,
               dailyErrors,
               today
             );
-            publishStateByClient.set(client.id, nextState);
+            await setPublishState(client.id, nextState);
           } catch (e) {
             const { message: msg } = serializeError(e);
             logInfo('Client loop error', { clientId: client.id, clientName: client.name, errorMessage: serializeError(e).message, responsePreview: getApiErrorResponsePreview(e) });
@@ -349,16 +312,22 @@ export async function mainLoop(): Promise<void> {
         const tasks = await readTasks();
         pollIntervalMs = settings.pollInterval;
         summaryTime = settings.dailySummaryTime;
-        const state = publishStateByClient.get('') ?? defaultState();
+        const context = { sheetContext: { spreadsheetId: config.google.spreadsheetId } };
+        const queueContext: QueueContext = {
+          clientId: '',
+          openrouterApiKey: config.openrouter.apiKey,
+        };
+        const state = await getPublishState('');
         const nextState = await runPipelinesForClient(
           settings,
           tasks,
-          undefined,
+          context,
+          queueContext,
           state,
           dailyErrors,
           today
         );
-        publishStateByClient.set('', nextState);
+        await setPublishState('', nextState);
       }
 
       if (dailySummarySentDate !== today && isAfterSummaryTime(summaryTime)) {

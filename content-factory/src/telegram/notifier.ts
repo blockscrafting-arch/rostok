@@ -3,6 +3,7 @@
  */
 import { Telegraf } from 'telegraf';
 import { config } from '../config';
+import { serializeError } from '../utils/logger';
 import { getTodayStats, getWeekStats, getMonthStats } from '../sheets/statistics';
 
 const bot = new Telegraf(config.telegram.botToken);
@@ -28,7 +29,7 @@ export async function notify(message: string): Promise<void> {
   );
   results.forEach((r, i) => {
     if (r.status === 'rejected') {
-      console.error('Notify failed:', { chatId: chatIds[i], error: r.reason });
+      console.error('Notify failed:', { chatId: chatIds[i], errorMessage: serializeError(r.reason).message });
     }
   });
 }
