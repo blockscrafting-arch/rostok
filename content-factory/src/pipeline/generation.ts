@@ -117,8 +117,9 @@ export async function generationPipeline(
       usageGround.prompt_tokens + usageDraft.prompt_tokens + usageHumanize.prompt_tokens;
     const outputTokens =
       usageGround.completion_tokens + usageDraft.completion_tokens + usageHumanize.completion_tokens;
-    const statsModel =
-      usageDraft.model || usageHumanize.model || usageGround.model || '—';
+    const statsModel = [usageGround.model, usageDraft.model, usageHumanize.model]
+      .filter(Boolean)
+      .join(' + ') || '—';
     await appendStatistics({
       headline: headline.slice(0, 200),
       inputTokens,
