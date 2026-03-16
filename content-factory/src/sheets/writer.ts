@@ -215,6 +215,14 @@ export async function writeTextResult(
     spreadsheetId: sid,
     requestBody: { valueInputOption: 'RAW', data },
   });
+
+  // Гарантируем, что в колонке P всегда формула символов относительно F.
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sid,
+    range: `'${SHEET_NAME}'!P${row}`,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [[`=IF(F${row}="";0;LEN(F${row}))`]] },
+  });
 }
 
 /** Записать результат полной генерации (текст + картинка). Сейчас пайплайн разделён: текст → writeTextResult, картинка → writeRegeneratedImage. Функция оставлена для совместимости и возможного сценария «всё за один вызов». */
@@ -250,6 +258,13 @@ export async function writeGenerationResult(
     spreadsheetId: sid,
     requestBody: { valueInputOption: 'RAW', data },
   });
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sid,
+    range: `'${SHEET_NAME}'!P${row}`,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [[`=IF(F${row}="";0;LEN(F${row}))`]] },
+  });
 }
 
 /** Записать только перегенерированную картинку и стоимость (H, L, M, E). Итого = стоимость текста из строки + costImageUsd. */
@@ -273,6 +288,13 @@ export async function writeRegeneratedImage(
   await sheets.spreadsheets.values.batchUpdate({
     spreadsheetId: sid,
     requestBody: { valueInputOption: 'RAW', data },
+  });
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sid,
+    range: `'${SHEET_NAME}'!P${row}`,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [[`=IF(F${row}="";0;LEN(F${row}))`]] },
   });
 }
 
