@@ -58,6 +58,10 @@ model ClientSettings {
   dnaBrand           String   @map("dna_brand")
   cta                String
   imageStyle         String   @map("image_style")
+  tonality           String   @default("")
+  targetAudience     String   @default("") @map("target_audience")
+  negativePrompt     String   @default("") @map("negative_prompt")
+  operationMode      String   @default("safe") @map("operation_mode")
   logoUrl            String?  @map("logo_url")
   utmTemplate        String?  @map("utm_template")
   frequencyLimit     String?  @map("frequency_limit") @default("300")

@@ -87,3 +87,81 @@ export async function extractClientSettings(answers: string[]): Promise<Extracte
     logoUrl,
   };
 }
+
+/** Маппинг callback_id форматов контента в строки для БД. */
+const CONTENT_FORMAT_VALUES: Record<string, string> = {
+  fmt_top10: 'ТОП-10 и полезные подборки',
+  fmt_compare: 'Сравнения До/После',
+  fmt_expert: 'Советы эксперта и разбор ошибок',
+  fmt_custom: '',
+};
+
+export interface OnboardingSettingsForDb {
+  role: string;
+  contentTypes: string[];
+  trustedSites: string[];
+  productDetails: string;
+  dnaBrand: string;
+  cta: string;
+  imageStyle: string;
+  tonality: string;
+  targetAudience: string;
+  negativePrompt: string;
+  operationMode: string;
+  maxArticlesPerDay: number;
+  publishIntervalMin: number;
+  generationTime: string;
+  imageGenMode: string;
+  moderationEnabled: boolean;
+  logoUrl?: string | null;
+}
+
+import type { OnboardingData } from '../redis/onboardingSession';
+
+/**
+ * Собирает имя клиента, нишу и настройки для БД из структурированных данных онбординга (inline-кнопки + свободный ввод).
+ * Пресеты safe/turbo применяются здесь.
+ */
+export function extractClientSettingsFromData(data: OnboardingData): {
+  clientName: string;
+  niche: string;
+  settings: OnboardingSettingsForDb;
+} {
+  const productDna = data.productDna ?? '';
+  const clientName = productDna.slice(0, 80) || 'Клиент';
+  const niche = productDna.slice(0, 200) || 'общее';
+
+  const isTurbo = (data.operationMode ?? 'safe').toLowerCase() === 'turbo';
+  const maxArticlesPerDay = isTurbo ? 15 : 5;
+  const publishIntervalMin = isTurbo ? 10 : 60;
+  const generationTime = isTurbo ? '' : '05:00';
+  const imageGenMode = isTurbo ? 'immediate' : 'scheduled';
+
+  const contentTypes = (data.contentTypes ?? [])
+    .map((cb) => CONTENT_FORMAT_VALUES[cb] ?? cb)
+    .filter(Boolean);
+
+  return {
+    clientName,
+    niche,
+    settings: {
+      role: data.role ?? 'Эксперт',
+      contentTypes,
+      trustedSites: data.trustedSites ?? [],
+      productDetails: data.productDetails ?? productDna,
+      dnaBrand: data.productDna ?? productDna,
+      cta: data.cta ?? 'Переходите по ссылке',
+      imageStyle: data.imageStyle ?? 'реалистичное фото',
+      tonality: data.tonality ?? '',
+      targetAudience: data.targetAudience ?? '',
+      negativePrompt: data.negativePrompt ?? '',
+      operationMode: data.operationMode ?? 'safe',
+      maxArticlesPerDay,
+      publishIntervalMin,
+      generationTime,
+      imageGenMode,
+      moderationEnabled: data.moderationEnabled ?? true,
+      logoUrl: data.logoUrl ?? null,
+    },
+  };
+}

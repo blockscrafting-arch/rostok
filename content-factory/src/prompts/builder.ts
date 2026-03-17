@@ -11,6 +11,9 @@ export interface PromptContext {
   dnaBrand: string;
   cta: string;
   imageStyle: string;
+  tonality: string;
+  targetAudience: string;
+  negativePrompt: string;
   headlineRules: string;
   keyword?: string;
   keywords?: string;
@@ -18,6 +21,7 @@ export interface PromptContext {
   headline?: string;
   facts?: string;
   productDetails?: string;
+  text?: string;
   [key: string]: string | string[] | number | undefined;
 }
 
@@ -25,7 +29,7 @@ const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /**
  * Подставляет в шаблон значения из контекста.
- * Плейсхолдеры: {role}, {niche}, {content_types}, {trusted_sites}, {dna_brand}, {cta}, {image_style}, {headline_rules}, {keyword}, {keywords}, {count}, {headline}, {facts}, {product_details}.
+ * Плейсхолдеры: {role}, {niche}, {content_types}, {trusted_sites}, {dna_brand}, {cta}, {image_style}, {tonality}, {target_audience}, {negative_prompt}, {headline_rules}, {keyword}, {keywords}, {count}, {headline}, {facts}, {product_details}, {text}.
  */
 export function buildPrompt(template: string, ctx: PromptContext): string {
   if (!template || typeof template !== 'string') {
@@ -42,7 +46,11 @@ export function buildPrompt(template: string, ctx: PromptContext): string {
     ['dna_brand', ctx.dnaBrand],
     ['cta', ctx.cta],
     ['image_style', ctx.imageStyle],
+    ['tonality', ctx.tonality],
+    ['target_audience', ctx.targetAudience],
+    ['negative_prompt', ctx.negativePrompt],
     ['headline_rules', ctx.headlineRules],
+    ['text', ctx.text ?? ''],
     ['keyword', ctx.keyword ?? ''],
     ['keywords', ctx.keywords ?? ''],
     ['count', ctx.count !== undefined ? String(ctx.count) : ''],

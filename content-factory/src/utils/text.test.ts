@@ -57,10 +57,10 @@ describe('truncateAtSentence', () => {
 describe('insertCatalogLinks', () => {
   const url = 'https://site.ru/catalog?utm_source=dzen';
 
-  it('заменяет маркер [ССЫЛКА НА КАТАЛОГ] на ссылку', () => {
+  it('заменяет маркер [ССЫЛКА НА КАТАЛОГ] на ссылку и добавляет блок в конец', () => {
     const text = 'Текст. Перейти: [ССЫЛКА НА КАТАЛОГ]';
     expect(insertCatalogLinks(text, url)).toBe(
-      'Текст. Перейти: https://site.ru/catalog?utm_source=dzen'
+      'Текст. Перейти: https://site.ru/catalog?utm_source=dzen\n\nПерейти на сайт: https://site.ru/catalog?utm_source=dzen'
     );
   });
 
@@ -73,10 +73,21 @@ describe('insertCatalogLinks', () => {
     );
   });
 
-  it('если маркера нет — добавляет ссылку в конец', () => {
-    const text = 'Статья без маркера.';
-    expect(insertCatalogLinks(text, url)).toBe(
-      'Статья без маркера.\n\nПерейти на сайт: https://site.ru/catalog?utm_source=dzen'
+  it('если маркера нет — вставляет блок в середину и в конец', () => {
+    const text = 'Абзац один.\n\nАбзац два.';
+    const result = insertCatalogLinks(text, url);
+    expect(result).toContain('Перейти на сайт: https://site.ru/catalog?utm_source=dzen');
+    expect(result.split('Перейти на сайт:').length).toBe(3);
+    expect(result).toMatch(/Абзац один/);
+    expect(result).toMatch(/Абзац два/);
+  });
+
+  it('при одном маркере — заменяет его и добавляет блок в конец', () => {
+    const text = 'Середина: [ССЫЛКА НА КАТАЛОГ] и всё.';
+    const result = insertCatalogLinks(text, url);
+    expect(result).not.toContain('[ССЫЛКА НА КАТАЛОГ]');
+    expect(result).toBe(
+      `Середина: https://site.ru/catalog?utm_source=dzen и всё.\n\nПерейти на сайт: https://site.ru/catalog?utm_source=dzen`
     );
   });
 
@@ -94,10 +105,10 @@ describe('insertCatalogLinks', () => {
     expect(insertCatalogLinks('  \n  ', url)).toBe('  \n  ');
   });
 
-  it('регистронезависимо находит маркер', () => {
+  it('регистронезависимо находит маркер и добавляет блок в конец', () => {
     const text = 'Ссылка: [ссылка на каталог]';
     expect(insertCatalogLinks(text, url)).toBe(
-      'Ссылка: https://site.ru/catalog?utm_source=dzen'
+      'Ссылка: https://site.ru/catalog?utm_source=dzen\n\nПерейти на сайт: https://site.ru/catalog?utm_source=dzen'
     );
   });
 });

@@ -7,21 +7,46 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 const DEFAULT_HEADLINES_PROMPT = `По ключевому слову "{keyword}" и НЧ-запросам: {keywords}.
-Сгенерируй {count} заголовков статей (лаконичные, с пользой для читателя).
-Для каждого заголовка подбери свой набор из 5–10 релевантных НЧ-запросов.
+{headline_rules}
+Форматы контента для заголовков: {content_types}.
+Сгенерируй {count} цепляющих заголовков статей.
+Для каждого заголовка подбери 5-10 релевантных НЧ-запросов.
 Формат ответа — строго:
 1. [Заголовок]
 КЗ: [запрос1, запрос2, ...]
 (и так до {count})`;
 
-const DEFAULT_DRAFT_PROMPT = `Ты — {role}. Пиши экспертную статью. Используй только проверенные факты из блока выше. СТРОГО до 4000 символов. Чередуй длину предложений.`;
+const DEFAULT_DRAFT_PROMPT = `Ты — {role}.
+Продукт/бизнес: {product_details}
+Целевая аудитория: {target_audience}
 
-const DEFAULT_HUMANIZE_PROMPT = `Перепиши текст в стиле бренда, сохрани смысл. Итоговый текст СТРОГО до 4000 символов. Не изменяй первую строку — это заголовок. Стиль живого эксперта: чередуй длину предложений, избегай шаблонов.`;
+Напиши экспертную SEO-статью строго на основе фактов из блока выше.
+Используй доверенные источники: {trusted_sites}
+Структура: заголовок (первая строка), вступление с крючком, 3-5 смысловых блоков с подзаголовками, заключение.
+СТРОГО до 4000 символов. Чередуй длину предложений.
+Оставь ДВА маркера [ССЫЛКА НА КАТАЛОГ]: один нативно в середине текста, второй в финальном блоке.`;
 
-const DEFAULT_IMAGE_PROMPT =
-  'Photorealistic photo of {headline}, natural lighting, high quality, smartphone photo style.';
+const DEFAULT_HUMANIZE_PROMPT = `Перепиши текст в стиле бренда.
+Тональность: {tonality}
+ДНК бренда: {dna_brand}
+
+СТОП-СЛОВА И ЗАПРЕТЫ (не использовать ни в каком виде):
+{negative_prompt}
+
+ПРИЗЫВ К ДЕЙСТВИЮ — ОБЯЗАТЕЛЬНО вставь в ДВА места:
+1) Нативно в середине текста, органично вписав в абзац: "{cta}" + маркер [ССЫЛКА НА КАТАЛОГ].
+2) В самом конце статьи выделенным блоком: "{cta}" + маркер [ССЫЛКА НА КАТАЛОГ].
+
+Итоговый текст СТРОГО до 4000 символов.
+Не изменяй первую строку — это заголовок.`;
+
+const DEFAULT_IMAGE_PROMPT = `Сгенерируй изображение для статьи.
+Стиль: {image_style}
+Тема: {headline}
+Контекст статьи: {text}
+Требования: уникальное изображение, высокое качество, без текста на картинке (если стиль не "инфографика" или "журнальная обложка").`;
 const DEFAULT_IMAGE_REF_PROMPT =
-  'Reference photo of the subject. Generate a new photorealistic image, similar style. Subject: {headline}.';
+  'Reference photo of the subject. Generate a new image in style {image_style}, similar appearance. Subject: {headline}.';
 
 const DEFAULT_GROUNDING_PROMPT = `Собери проверенные факты для статьи.
 Заголовок: "{headline}"
@@ -31,12 +56,17 @@ const DEFAULT_GROUNDING_PROMPT = `Собери проверенные факты
 const HEADLINE_RULES = `Ключевое слово должно быть в КЗ, если заголовок его упоминает. Разные заголовки — разные подмножества КЗ.`;
 
 const ONBOARDING_STEPS = [
-  { stepOrder: 1, description: 'Знакомство: название компании и ниша' },
-  { stepOrder: 2, description: 'Роль эксперта и типы контента' },
-  { stepOrder: 3, description: 'Источники фактов и особенности продукта' },
-  { stepOrder: 4, description: 'Голос бренда и призыв к действию' },
-  { stepOrder: 5, description: 'Стиль картинок и логотип' },
-  { stepOrder: 6, description: 'Подтверждение сводки' },
+  { stepOrder: 0, description: 'Приветствие' },
+  { stepOrder: 1, description: 'Голос бренда' },
+  { stepOrder: 2, description: 'Целевая аудитория' },
+  { stepOrder: 3, description: 'О продукте' },
+  { stepOrder: 4, description: 'Визуал (стиль картинок)' },
+  { stepOrder: 5, description: 'Форматы контента и роль ИИ' },
+  { stepOrder: 6, description: 'Источники и ссылки' },
+  { stepOrder: 7, description: 'Стоп-слова' },
+  { stepOrder: 8, description: 'Настройка автопилота' },
+  { stepOrder: 9, description: 'Призыв к действию (CTA)' },
+  { stepOrder: 10, description: 'Финал (сводка)' },
 ];
 
 async function main() {

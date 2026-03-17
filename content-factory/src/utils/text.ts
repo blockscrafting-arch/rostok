@@ -32,17 +32,35 @@ const CTA_MARKER = /\[ССЫЛКА НА КАТАЛОГ\]/gi;
 
 /**
  * Заменяет маркер [ССЫЛКА НА КАТАЛОГ] на реальную UTM-ссылку.
- * Если маркеров нет — добавляет ссылку в конец текста.
+ * — 2+ маркеров: заменяем все на UTM-ссылку.
+ * — 1 маркер: заменяем + добавляем блок с ссылкой в конец.
+ * — 0 маркеров: вставляем ссылку нативно в середину (после ~50% абзацев) и блоком в конец.
  */
 export function insertCatalogLinks(text: string, utmUrl: string): string {
-  CTA_MARKER.lastIndex = 0;
   if (!utmUrl.trim()) return text;
-  const hasMarker = CTA_MARKER.test(text);
-  CTA_MARKER.lastIndex = 0;
-  if (hasMarker) {
-    return text.replace(CTA_MARKER, utmUrl);
-  }
   const trimmed = text.trimEnd();
   if (!trimmed) return text;
-  return `${trimmed}\n\nПерейти на сайт: ${utmUrl}`;
+
+  const matches = trimmed.match(CTA_MARKER);
+  const count = matches?.length ?? 0;
+  CTA_MARKER.lastIndex = 0;
+
+  if (count >= 2) {
+    return trimmed.replace(CTA_MARKER, utmUrl);
+  }
+  if (count === 1) {
+    const replaced = trimmed.replace(CTA_MARKER, utmUrl);
+    return `${replaced}\n\nПерейти на сайт: ${utmUrl}`;
+  }
+
+  // 0 маркеров: вставить в середину и в конец
+  const paragraphs = trimmed.split(/\n\n+/);
+  const insertIndex = Math.max(1, Math.floor(paragraphs.length * 0.5));
+  const block = `Перейти на сайт: ${utmUrl}`;
+  const mid = paragraphs.slice(0, insertIndex).join('\n\n');
+  const afterMid = paragraphs.slice(insertIndex).join('\n\n');
+  const withMiddle = afterMid
+    ? `${mid}\n\n${block}\n\n${afterMid}`
+    : `${mid}\n\n${block}`;
+  return `${withMiddle.trimEnd()}\n\n${block}`;
 }

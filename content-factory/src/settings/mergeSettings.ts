@@ -12,9 +12,14 @@ function defaultClientSettings(client: Client): Partial<ClientSettings> {
     role: 'Эксперт',
     contentTypes: [],
     trustedSites: [],
+    productDetails: '',
     dnaBrand: '',
     cta: '',
     imageStyle: 'реалистичное фото растения',
+    tonality: '',
+    targetAudience: '',
+    negativePrompt: '',
+    operationMode: 'safe',
     maxArticlesPerDay: config.schedule.maxArticlesPerDay ?? 10,
     moderationEnabled: true,
     publishIntervalMin: 60,
@@ -44,7 +49,11 @@ export function mergeSettings(
   const dnaBrand = s.dnaBrand ?? '';
   const cta = s.cta ?? '';
   const imageStyle = s.imageStyle ?? 'реалистичное фото растения';
+  const tonality = s.tonality ?? '';
+  const targetAudience = s.targetAudience ?? '';
+  const negativePrompt = s.negativePrompt ?? '';
   const headlineRules = admin.headlineRules ?? '';
+  const productDetails = s.productDetails ?? '';
 
   const promptContext = {
     role,
@@ -54,7 +63,11 @@ export function mergeSettings(
     dnaBrand,
     cta,
     imageStyle,
+    tonality,
+    targetAudience,
+    negativePrompt,
     headlineRules,
+    productDetails,
   };
 
   const prompt1 = buildPrompt(admin.masterPrompt1, promptContext);
