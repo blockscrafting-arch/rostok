@@ -1,6 +1,7 @@
 # Контент-Завод: PostgreSQL, Redis, приложение и NocoDB (админка поверх БД).
 # Запуск: docker compose up -d (на VPS или локально).
-# В .env задайте DATABASE_URL, REDIS_URL, NC_DB и NC_AUTH_JWT_SECRET.
+# В .env задайте: POSTGRES_PASSWORD, REDIS_URL, NC_AUTH_JWT_SECRET.
+# DATABASE_URL и NC_DB собираются из POSTGRES_* — пароль не расходится (ошибка 28P01).
 #
 # NocoDB (на VPS): после старта откройте http://<IP-или-домен-сервера>:8080
 # (контейнер слушает 0.0.0.0:8080). Создайте первый аккаунт в UI — это админ NocoDB.
@@ -12,7 +13,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
       POSTGRES_DB: content_factory
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -30,7 +31,7 @@ services:
       - redis
     env_file: .env
     environment:
-      DATABASE_URL: postgresql://user:password@postgres:5432/content_factory
+      DATABASE_URL: postgresql://user:${POSTGRES_PASSWORD:-password}@postgres:5432/content_factory
       REDIS_URL: redis://redis:6379
     volumes:
       - ./secrets:/app/secrets:ro
@@ -43,7 +44,8 @@ services:
       - postgres
     env_file: .env
     environment:
-      NC_DB: "${NC_DB}"
+      # Единый пароль из POSTGRES_PASSWORD — избегаем 28P01 (password authentication failed)
+      NC_DB: "pg://postgres:5432?u=user&p=${POSTGRES_PASSWORD:-password}&d=content_factory"
       NC_AUTH_JWT_SECRET: "${NC_AUTH_JWT_SECRET:-change-me-in-production}"
     volumes:
       - nocodb_data:/usr/app/data
