@@ -55,6 +55,8 @@ export const config = {
     notifyChatId: env('TELEGRAM_NOTIFY_CHAT_ID'),
     /** Токен бота для онбординга новых клиентов (отдельный бот от BotFather). */
     onboardingBotToken: envOptional('ONBOARDING_BOT_TOKEN'),
+    /** Ссылка на инструкцию для менеджера (Telegraph). Добавляется в финальное сообщение онбординга. */
+    managerInstructionUrl: envOptional('MANAGER_INSTRUCTION_URL'),
   },
   redis: {
     url: envOptional('REDIS_URL', 'redis://localhost:6379'),

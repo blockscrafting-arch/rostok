@@ -98,6 +98,20 @@ async function main() {
     },
   });
 
+  // Клиент для legacy-режима (одна таблица из config). Без него cost_records не пишутся (FK).
+  await prisma.client.upsert({
+    where: { id: 'default' },
+    create: {
+      id: 'default',
+      name: 'Основной',
+      niche: 'legacy',
+      openrouterApiKey: 'legacy-placeholder',
+      isActive: false,
+      onboardingDone: true,
+    },
+    update: {},
+  });
+
   for (const step of ONBOARDING_STEPS) {
     const existing = await prisma.onboardingStep.findFirst({
       where: { stepOrder: step.stepOrder },
@@ -114,7 +128,7 @@ async function main() {
     }
   }
 
-  console.log('Seed: admin_settings + onboarding_steps OK');
+  console.log('Seed: admin_settings + default client + onboarding_steps OK');
 }
 
 main()

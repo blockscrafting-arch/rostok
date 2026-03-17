@@ -304,17 +304,17 @@ export async function mainLoop(): Promise<void> {
           }
         }
       } else {
-        // Одна таблица из config (обратная совместимость)
+        // Одна таблица из config (обратная совместимость). clientId='default' для cost_records (FK).
         const settings = await readSettings();
         const tasks = await readTasks();
         pollIntervalMs = settings.pollInterval;
         summaryTime = settings.dailySummaryTime;
         const context = { sheetContext: { spreadsheetId: config.google.spreadsheetId } };
         const queueContext: QueueContext = {
-          clientId: '',
+          clientId: 'default',
           openrouterApiKey: config.openrouter.apiKey,
         };
-        const state = await getPublishState('');
+        const state = await getPublishState('default');
         const nextState = await runPipelinesForClient(
           settings,
           tasks,
@@ -324,16 +324,17 @@ export async function mainLoop(): Promise<void> {
           dailyErrors,
           today
         );
-        await setPublishState('', nextState);
+        await setPublishState('default', nextState);
       }
 
       if (dailySummarySentDate !== today && isAfterSummaryTime(summaryTime)) {
         try {
-          const summaryClients = admin && clients.length > 0
-            ? clients
-                .filter((c) => c.spreadsheetId?.trim())
-                .map((c) => ({ id: c.id, name: c.name, spreadsheetId: c.spreadsheetId!, notifyChatId: c.notifyChatId ?? undefined }))
-            : undefined;
+          const summaryClients =
+            admin && clients.length > 0
+              ? clients
+                  .filter((c) => c.spreadsheetId?.trim())
+                  .map((c) => ({ id: c.id, name: c.name, spreadsheetId: c.spreadsheetId!, notifyChatId: c.notifyChatId ?? undefined }))
+              : [{ id: 'default', name: 'Основной', spreadsheetId: config.google.spreadsheetId }];
           await sendDailySummary(
             dailyErrors.length ? dailyErrors : undefined,
             summaryClients ? { clients: summaryClients } : undefined

@@ -6,6 +6,8 @@ import { Telegraf } from 'telegraf';
 import type { Context } from 'telegraf';
 import { message } from 'telegraf/filters';
 import { config } from '../config';
+
+const managerInstructionUrl = config.telegram.managerInstructionUrl?.trim() || '';
 import { prisma } from '../db/client';
 import { downloadAndConvertToMp3Base64, transcribeAudio } from './media';
 import { extractClientSettingsFromData } from '../ai/extractor';
@@ -674,8 +676,11 @@ export function launchOnboardingBot(): void {
             where: { id: client.id },
             data: { spreadsheetId, onboardingDone: true, isActive: true },
           });
+          const instructionLine = managerInstructionUrl
+            ? `\n\n📋 Инструкция для менеджера: ${managerInstructionUrl}`
+            : '';
           await ctx.reply(
-            `🎉 Готово! Ваша таблица управления: ${spreadsheetUrl}\n\nДобавьте OpenRouter API Key в настройки (администратор подскажет).`
+            `🎉 Готово! Ваша таблица управления: ${spreadsheetUrl}\n\nДобавьте OpenRouter API Key в настройки (администратор подскажет).${instructionLine}`
           );
           await notifyAdminsAboutNewBrief(bot, {
             clientName,
@@ -688,7 +693,10 @@ export function launchOnboardingBot(): void {
             where: { id: client.id },
             data: { onboardingDone: true },
           });
-          await ctx.reply('Бриф сохранён. Администратор создаст таблицу и вышлет ссылку.');
+          const instructionLine = managerInstructionUrl
+            ? `\n\n📋 Инструкция для менеджера: ${managerInstructionUrl}`
+            : '';
+          await ctx.reply(`Бриф сохранён. Администратор создаст таблицу и вышлет ссылку.${instructionLine}`);
           await notifyAdminsAboutNewBrief(bot, { clientName, email: text, niche });
         }
         await deleteOnboardingSession(chatId);
