@@ -5,9 +5,9 @@ import { generatePlantImage } from '../ai/image';
 import { openrouter } from '../ai/client';
 import { uploadImage } from '../storage/s3';
 import { writeRegeneratedImage, setStatusError } from '../sheets/writer';
-import { appendStatistics } from '../sheets/statistics';
+import { createCostRecord } from '../db/repositories/costRecords';
 import { withRetry } from '../utils/retry';
-import { logInfo, logWarn } from '../utils/logger';
+import { logInfo, logWarn, serializeError } from '../utils/logger';
 import { composeWithLogo } from '../utils/imageOverlay';
 import type { SheetTask, Settings, PipelineContext } from '../types';
 
@@ -133,16 +133,16 @@ export async function regenerateImagePipeline(
     }
 
     await writeRegeneratedImage(task, imageUrl, costImageUsd, 'Готово к проверке', sheetCtx);
-    await appendStatistics({
-      headline: headline.slice(0, 200),
+    await createCostRecord({
+      clientId: context?.clientId ?? '',
+      operation: 'image',
+      model: imgResult.usage?.model ?? '—',
       inputTokens: imgResult.usage?.prompt_tokens ?? 0,
       outputTokens: imgResult.usage?.completion_tokens ?? 0,
-      model: imgResult.usage?.model ?? '—',
-      costTextUsd: 0,
-      costImageUsd,
-      costTotalUsd: costImageUsd,
-      date: new Date().toISOString().slice(0, 10),
-    }, sheetCtx).catch(() => {});
+      costUsd: costImageUsd,
+    }).catch((e) => {
+      logWarn('Cost record write failed', { rowIndex: task.rowIndex, errorMessage: serializeError(e).message });
+    });
     logInfo('Regenerated image', { headline: headline.slice(0, 50), rowIndex: task.rowIndex });
   } catch (e) {
     await setStatusError(task, sheetCtx);

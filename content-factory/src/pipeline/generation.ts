@@ -9,9 +9,9 @@ import { humanize } from '../ai/humanize';
 import { openrouter } from '../ai/client';
 import { splitCostUsd } from '../ai/cost';
 import { writeTextResult, updateStatus, setStatusError } from '../sheets/writer';
-import { appendStatistics } from '../sheets/statistics';
+import { createCostRecord } from '../db/repositories/costRecords';
 import { withRetry } from '../utils/retry';
-import { logInfo } from '../utils/logger';
+import { logInfo, logWarn, serializeError } from '../utils/logger';
 import { truncateAtSentence, cleanArticleFirstLine, insertCatalogLinks } from '../utils/text';
 import type { SheetTask, Settings, PipelineContext } from '../types';
 
@@ -120,16 +120,16 @@ export async function generationPipeline(
     const statsModel = [usageGround.model, usageDraft.model, usageHumanize.model]
       .filter(Boolean)
       .join(' + ') || '—';
-    await appendStatistics({
-      headline: headline.slice(0, 200),
+    await createCostRecord({
+      clientId: context?.clientId ?? '',
+      operation: 'text',
+      model: statsModel,
       inputTokens,
       outputTokens,
-      model: statsModel,
-      costTextUsd,
-      costImageUsd: 0,
-      costTotalUsd: costTextUsd,
-      date: new Date().toISOString().slice(0, 10),
-    }, sheetCtx).catch(() => {});
+      costUsd: costTextUsd,
+    }).catch((e) => {
+      logWarn('Cost record write failed', { headline: headline.slice(0, 50), errorMessage: serializeError(e).message });
+    });
 
     logInfo('Text generation done', { headline: headline.slice(0, 50), costTextUsd });
   } catch (error) {

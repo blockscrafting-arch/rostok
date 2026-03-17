@@ -35,3 +35,47 @@ export async function getTotalCostByClientAndPeriod(
   });
   return agg._sum.costUsd ?? 0;
 }
+
+export interface PeriodStats {
+  count: number;
+  totalCostUsd: number;
+  avgCostUsd: number;
+}
+
+/** Агрегация по cost_records за период (для сводок). count = число записей, totalCostUsd и avgCostUsd. */
+export async function getStatsByClientAndPeriod(
+  clientId: string,
+  from: Date,
+  to: Date
+): Promise<PeriodStats> {
+  const [agg, count] = await Promise.all([
+    prisma.costRecord.aggregate({
+      where: { clientId, createdAt: { gte: from, lte: to } },
+      _sum: { costUsd: true },
+    }),
+    prisma.costRecord.count({
+      where: { clientId, createdAt: { gte: from, lte: to } },
+    }),
+  ]);
+  const totalCostUsd = agg._sum.costUsd ?? 0;
+  return {
+    count,
+    totalCostUsd,
+    avgCostUsd: count > 0 ? totalCostUsd / count : 0,
+  };
+}
+
+/** Число статей (операция text) за период — для клиентской сводки без денег. */
+export async function getArticleCountByClientAndPeriod(
+  clientId: string,
+  from: Date,
+  to: Date
+): Promise<number> {
+  return prisma.costRecord.count({
+    where: {
+      clientId,
+      operation: 'text',
+      createdAt: { gte: from, lte: to },
+    },
+  });
+}

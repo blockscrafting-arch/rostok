@@ -1,10 +1,14 @@
 /**
  * Бот уведомлений: ошибки, сводка, публикации — в личный чат заказчика.
+ * Админам — полная сводка с расходами ($). Клиентам — только количество статей (без денег).
  */
 import { Telegraf } from 'telegraf';
 import { config } from '../config';
 import { serializeError } from '../utils/logger';
-import { getTodayStats, getWeekStats, getMonthStats } from '../sheets/statistics';
+import {
+  getStatsByClientAndPeriod,
+  getArticleCountByClientAndPeriod,
+} from '../db/repositories/costRecords';
 
 const bot = new Telegraf(config.telegram.botToken);
 
@@ -34,6 +38,15 @@ export async function notify(message: string): Promise<void> {
   });
 }
 
+/** Отправить сообщение в один чат (для персональной сводки клиенту). */
+async function sendToChat(chatId: string, message: string): Promise<void> {
+  try {
+    await bot.telegram.sendMessage(chatId, message, { parse_mode: 'HTML' });
+  } catch (e) {
+    console.error('Send to client failed:', { chatId, errorMessage: serializeError(e).message });
+  }
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -42,78 +55,133 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
-/** Клиент для сводки: общая по всем + персональная по каждому (AGENTS.md). */
+function dateRangeDay(): { from: Date; to: Date } {
+  const to = new Date();
+  const from = new Date(to);
+  from.setHours(0, 0, 0, 0);
+  to.setHours(23, 59, 59, 999);
+  return { from, to };
+}
+
+function dateRangeWeek(): { from: Date; to: Date } {
+  const to = new Date();
+  const from = new Date(to);
+  from.setDate(from.getDate() - 6);
+  from.setHours(0, 0, 0, 0);
+  to.setHours(23, 59, 59, 999);
+  return { from, to };
+}
+
+function dateRangeMonth(): { from: Date; to: Date } {
+  const to = new Date();
+  const from = new Date(to.getFullYear(), to.getMonth(), 1, 0, 0, 0, 0);
+  to.setHours(23, 59, 59, 999);
+  return { from, to };
+}
+
+/** Клиент для сводки: общая по всем + персональная по каждому (AGENTS.md). notifyChatId — куда слать клиенту сводку без денег. */
 export interface DailySummaryClient {
   id: string;
   name: string;
   spreadsheetId: string;
+  notifyChatId?: string | null;
 }
 
 /**
- * Ежедневная сводка: день, неделя, месяц, средняя цена. Вызывается из scheduler по расписанию.
- * В мульти-клиенте: сначала общая по всем клиентам, затем блок по каждому клиенту (персональная).
- * В режиме одной таблицы: одна сводка по config.
+ * Ежедневная сводка: данные из БД (cost_records).
+ * Админам (TELEGRAM_NOTIFY_CHAT_ID): полная сводка с расходами ($).
+ * Клиентам (client.notifyChatId): только количество статей за день/неделю/месяц, без денег.
  */
 export async function sendDailySummary(
   errors?: string[],
   options?: { clients?: DailySummaryClient[] }
 ): Promise<void> {
   const fmt = (v: number) => v.toFixed(4);
-  let text: string;
+  const dayRange = dateRangeDay();
+  const weekRange = dateRangeWeek();
+  const monthRange = dateRangeMonth();
 
   if (options?.clients?.length) {
     const clients = options.clients.filter((c) => c.spreadsheetId?.trim());
     const allStats = await Promise.all(
       clients.map(async (c) => {
         const [day, week, month] = await Promise.all([
-          getTodayStats({ spreadsheetId: c.spreadsheetId }),
-          getWeekStats({ spreadsheetId: c.spreadsheetId }),
-          getMonthStats({ spreadsheetId: c.spreadsheetId }),
+          getStatsByClientAndPeriod(c.id, dayRange.from, dayRange.to),
+          getStatsByClientAndPeriod(c.id, weekRange.from, weekRange.to),
+          getStatsByClientAndPeriod(c.id, monthRange.from, monthRange.to),
         ]);
         return { client: c, day, week, month };
       })
     );
-    const totalDay = allStats.reduce((a, s) => ({ count: a.count + s.day.count, totalCostUsd: a.totalCostUsd + s.day.totalCostUsd }), { count: 0, totalCostUsd: 0 });
-    const totalWeek = allStats.reduce((a, s) => ({ count: a.count + s.week.count, totalCostUsd: a.totalCostUsd + s.week.totalCostUsd }), { count: 0, totalCostUsd: 0 });
-    const totalMonth = allStats.reduce((a, s) => ({ count: a.count + s.month.count, totalCostUsd: a.totalCostUsd + s.month.totalCostUsd }), { count: 0, totalCostUsd: 0 });
 
-    text = '<b>Общая по всем клиентам</b>\n';
-    text += `<b>Сводка за день</b>\nСтатей: ${totalDay.count}\nРасход: $${fmt(totalDay.totalCostUsd)}\n`;
-    text += `\n<b>За неделю</b>\nСтатей: ${totalWeek.count}\nРасход: $${fmt(totalWeek.totalCostUsd)}\n`;
-    text += `\n<b>За месяц</b>\nСтатей: ${totalMonth.count}\nРасход: $${fmt(totalMonth.totalCostUsd)}\n`;
+    const totalDay = allStats.reduce(
+      (a, s) => ({ count: a.count + s.day.count, totalCostUsd: a.totalCostUsd + s.day.totalCostUsd }),
+      { count: 0, totalCostUsd: 0 }
+    );
+    const totalWeek = allStats.reduce(
+      (a, s) => ({ count: a.count + s.week.count, totalCostUsd: a.totalCostUsd + s.week.totalCostUsd }),
+      { count: 0, totalCostUsd: 0 }
+    );
+    const totalMonth = allStats.reduce(
+      (a, s) => ({ count: a.count + s.month.count, totalCostUsd: a.totalCostUsd + s.month.totalCostUsd }),
+      { count: 0, totalCostUsd: 0 }
+    );
 
-    for (const { client, day, week, month } of allStats) {
-      text += `\n<b>Клиент: ${escapeHtml(client.name)}</b>\n`;
-      text += `День: ${day.count} статей, $${fmt(day.totalCostUsd)}`;
-      if (day.count > 0) text += ` (ср. $${fmt(day.avgCostUsd)})`;
-      text += `\nНеделя: ${week.count}, $${fmt(week.totalCostUsd)}`;
-      if (week.count > 0) text += ` (ср. $${fmt(week.avgCostUsd)})`;
-      text += `\nМесяц: ${month.count}, $${fmt(month.totalCostUsd)}`;
-      if (month.count > 0) text += ` (ср. $${fmt(month.avgCostUsd)})`;
-      text += '\n';
+    const adminText =
+      '<b>Общая по всем клиентам</b>\n' +
+      `<b>Сводка за день</b>\nОпераций: ${totalDay.count}\nРасход: $${fmt(totalDay.totalCostUsd)}\n` +
+      `\n<b>За неделю</b>\nОпераций: ${totalWeek.count}\nРасход: $${fmt(totalWeek.totalCostUsd)}\n` +
+      `\n<b>За месяц</b>\nОпераций: ${totalMonth.count}\nРасход: $${fmt(totalMonth.totalCostUsd)}\n` +
+      allStats
+        .map(
+          ({ client, day, week, month }) =>
+            `\n<b>Клиент: ${escapeHtml(client.name)}</b>\n` +
+            `День: ${day.count} операций, $${fmt(day.totalCostUsd)}` +
+            (day.count > 0 ? ` (ср. $${fmt(day.avgCostUsd)})` : '') +
+            `\nНеделя: ${week.count}, $${fmt(week.totalCostUsd)}` +
+            (week.count > 0 ? ` (ср. $${fmt(week.avgCostUsd)})` : '') +
+            `\nМесяц: ${month.count}, $${fmt(month.totalCostUsd)}` +
+            (month.count > 0 ? ` (ср. $${fmt(month.avgCostUsd)})` : '') +
+            '\n'
+        )
+        .join('');
+
+    const adminMessage = errors?.length
+      ? adminText + '\n\nОшибки:\n' + errors.slice(0, 5).map(escapeHtml).join('\n')
+      : adminText;
+    await notify(adminMessage);
+
+    for (const { client } of allStats) {
+      if (!client.notifyChatId?.trim()) continue;
+      const [dayArticles, weekArticles, monthArticles] = await Promise.all([
+        getArticleCountByClientAndPeriod(client.id, dayRange.from, dayRange.to),
+        getArticleCountByClientAndPeriod(client.id, weekRange.from, weekRange.to),
+        getArticleCountByClientAndPeriod(client.id, monthRange.from, monthRange.to),
+      ]);
+      const clientText =
+        `<b>Сводка за сегодня</b>\n` +
+        `Статей сгенерировано: за день — ${dayArticles}, за неделю — ${weekArticles}, за месяц — ${monthArticles}.`;
+      await sendToChat(client.notifyChatId.trim(), clientText);
     }
   } else {
+    const clientId = '';
     const [day, week, month] = await Promise.all([
-      getTodayStats(),
-      getWeekStats(),
-      getMonthStats(),
+      getStatsByClientAndPeriod(clientId, dayRange.from, dayRange.to),
+      getStatsByClientAndPeriod(clientId, weekRange.from, weekRange.to),
+      getStatsByClientAndPeriod(clientId, monthRange.from, monthRange.to),
     ]);
-    text = `<b>Сводка за день</b>\nСтатей: ${day.count}\nРасход: $${fmt(day.totalCostUsd)}`;
-    if (day.count > 0) {
-      text += `\nСредняя за статью: $${fmt(day.avgCostUsd)}`;
+    let text =
+      `<b>Сводка за день</b>\nОпераций: ${day.count}\nРасход: $${fmt(day.totalCostUsd)}` +
+      (day.count > 0 ? `\nСредняя за операцию: $${fmt(day.avgCostUsd)}` : '');
+    text +=
+      `\n\n<b>За неделю</b>\nОпераций: ${week.count}\nРасход: $${fmt(week.totalCostUsd)}` +
+      (week.count > 0 ? `\nСредняя: $${fmt(week.avgCostUsd)}` : '');
+    text +=
+      `\n\n<b>За месяц</b>\nОпераций: ${month.count}\nРасход: $${fmt(month.totalCostUsd)}` +
+      (month.count > 0 ? `\nСредняя: $${fmt(month.avgCostUsd)}` : '');
+    if (errors?.length) {
+      text += '\n\nОшибки:\n' + errors.slice(0, 5).map(escapeHtml).join('\n');
     }
-    text += `\n\n<b>За неделю</b>\nСтатей: ${week.count}\nРасход: $${fmt(week.totalCostUsd)}`;
-    if (week.count > 0) {
-      text += `\nСредняя за статью: $${fmt(week.avgCostUsd)}`;
-    }
-    text += `\n\n<b>За месяц</b>\nСтатей: ${month.count}\nРасход: $${fmt(month.totalCostUsd)}`;
-    if (month.count > 0) {
-      text += `\nСредняя за статью: $${fmt(month.avgCostUsd)}`;
-    }
+    await notify(text);
   }
-
-  if (errors?.length) {
-    text += '\n\nОшибки:\n' + errors.slice(0, 5).map(escapeHtml).join('\n');
-  }
-  await notify(text);
 }

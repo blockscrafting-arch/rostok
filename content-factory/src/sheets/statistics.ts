@@ -1,6 +1,10 @@
 /**
  * Запись в лист «Статистика»: токены, модель, стоимость текста/картинки, итого, дата.
  * Статистика за период: по одной таблице (spreadsheetId) или по config (одна таблица).
+ *
+ * @deprecated С 2026-03 статистика пишется только в PostgreSQL (cost_records); сводка в Telegram
+ * строится из БД. Эти функции оставлены для совместимости и не вызываются из пайплайнов.
+ * Управление и просмотр — через NocoDB или репозиторий costRecords.
  */
 import { sheets, spreadsheetId } from './client';
 import type { SheetContext } from './writer';

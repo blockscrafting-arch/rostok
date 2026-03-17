@@ -1,6 +1,10 @@
-# Контент-Завод: PostgreSQL, Redis и приложение.
-# Запуск: docker compose up -d
-# В .env задайте DATABASE_URL и REDIS_URL с хостами postgres и redis для работы внутри сети.
+# Контент-Завод: PostgreSQL, Redis, приложение и NocoDB (админка поверх БД).
+# Запуск: docker compose up -d (на VPS или локально).
+# В .env задайте DATABASE_URL, REDIS_URL, NC_DB и NC_AUTH_JWT_SECRET.
+#
+# NocoDB (на VPS): после старта откройте http://<IP-или-домен-сервера>:8080
+# (контейнер слушает 0.0.0.0:8080). Создайте первый аккаунт в UI — это админ NocoDB.
+# Рекомендуется: закрыть 8080 файрволом для всех кроме своего IP или проксировать через nginx с HTTPS.
 
 services:
   postgres:
@@ -32,6 +36,21 @@ services:
       - ./secrets:/app/secrets:ro
     restart: unless-stopped
 
+  nocodb:
+    image: nocodb/nocodb:latest
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    env_file: .env
+    environment:
+      NC_DB: "${NC_DB}"
+      NC_AUTH_JWT_SECRET: "${NC_AUTH_JWT_SECRET:-change-me-in-production}"
+    volumes:
+      - nocodb_data:/usr/app/data
+    ports:
+      - "8080:8080"
+
 volumes:
   postgres_data:
   redis_data:
+  nocodb_data:

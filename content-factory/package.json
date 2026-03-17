@@ -11,6 +11,7 @@
     "hide-rows": "ts-node src/scripts/hideRows.ts",
     "export-client": "ts-node cli/export-client.ts",
     "create-client-table": "ts-node cli/create-client-table.ts",
+    "clear-client-stats": "ts-node scripts/clear-client-stats.ts",
     "test": "vitest",
     "test:run": "vitest run"
   },

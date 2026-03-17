@@ -330,7 +330,9 @@ export async function mainLoop(): Promise<void> {
       if (dailySummarySentDate !== today && isAfterSummaryTime(summaryTime)) {
         try {
           const summaryClients = admin && clients.length > 0
-            ? clients.filter((c) => c.spreadsheetId?.trim()).map((c) => ({ id: c.id, name: c.name, spreadsheetId: c.spreadsheetId! }))
+            ? clients
+                .filter((c) => c.spreadsheetId?.trim())
+                .map((c) => ({ id: c.id, name: c.name, spreadsheetId: c.spreadsheetId!, notifyChatId: c.notifyChatId ?? undefined }))
             : undefined;
           await sendDailySummary(
             dailyErrors.length ? dailyErrors : undefined,
