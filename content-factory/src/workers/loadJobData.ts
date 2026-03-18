@@ -21,7 +21,7 @@ const tasksCache = new PromiseCache<Awaited<ReturnType<typeof readTasks>>>(TASKS
 
 export async function loadTaskAndSettings(payload: BaseJobPayload): Promise<LoadedJobData> {
   let settings: Settings;
-  if (payload.clientId) {
+  if (payload.clientId && payload.clientId !== 'default') {
     settings = await settingsCache.getOrFetch(`client:${payload.clientId}`, async () => {
       const client = await getClientWithSettings(payload.clientId!);
       if (!client) throw new Error(`Client not found: ${payload.clientId}`);
