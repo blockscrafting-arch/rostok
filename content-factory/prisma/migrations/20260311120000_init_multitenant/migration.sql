@@ -11,7 +11,7 @@ CREATE TABLE "admin_settings" (
     "defaultTextModel" TEXT NOT NULL DEFAULT 'deepseek/deepseek-chat',
     "defaultImageModel" TEXT NOT NULL DEFAULT 'google/gemini-3.1-flash-image-preview',
     "defaultGroundingModel" TEXT NOT NULL DEFAULT 'perplexity/sonar',
-    "updatedAt" TIMESTAMP(3) NOT NULL
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "admin_settings_pkey" PRIMARY KEY ("id")
 );
