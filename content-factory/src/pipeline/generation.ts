@@ -121,7 +121,7 @@ export async function generationPipeline(
       .filter(Boolean)
       .join(' + ') || '—';
     await createCostRecord({
-      clientId: context?.clientId ?? '',
+      clientId: context?.clientId || 'default',
       operation: 'text',
       model: statsModel,
       inputTokens,

@@ -164,7 +164,7 @@ export async function sendDailySummary(
       await sendToChat(client.notifyChatId.trim(), clientText);
     }
   } else {
-    const clientId = '';
+    const clientId = 'default';
     const [day, week, month] = await Promise.all([
       getStatsByClientAndPeriod(clientId, dayRange.from, dayRange.to),
       getStatsByClientAndPeriod(clientId, weekRange.from, weekRange.to),

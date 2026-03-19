@@ -134,7 +134,7 @@ export async function regenerateImagePipeline(
 
     await writeRegeneratedImage(task, imageUrl, costImageUsd, 'Готово к проверке', sheetCtx);
     await createCostRecord({
-      clientId: context?.clientId ?? '',
+      clientId: context?.clientId || 'default',
       operation: 'image',
       model: imgResult.usage?.model ?? '—',
       inputTokens: imgResult.usage?.prompt_tokens ?? 0,

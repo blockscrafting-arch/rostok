@@ -11,6 +11,7 @@ export interface OnboardingData {
   tonality?: string;
   targetAudience?: string;
   productDna?: string;
+  productDetails?: string;
   imageStyle?: string;
   contentTypes?: string[];
   role?: string;
