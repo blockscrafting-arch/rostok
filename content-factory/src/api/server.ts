@@ -51,10 +51,11 @@ export async function startApiServer(): Promise<void> {
   });
 
   app.setErrorHandler((err, request, reply) => {
-    if (err.validation) {
+    const fastifyErr = err as { validation?: unknown; message?: string };
+    if (fastifyErr.validation) {
       return reply.status(400).send({
         ok: false,
-        error: err.message || 'Ошибка валидации',
+        error: fastifyErr.message || 'Ошибка валидации',
       });
     }
     request.log.error({ err }, 'Unhandled error');

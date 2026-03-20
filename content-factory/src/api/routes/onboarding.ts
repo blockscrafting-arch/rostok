@@ -88,11 +88,10 @@ export async function onboardingRoute(
           spreadsheetId: result.spreadsheetId,
         });
       } catch (e) {
-        const err = e as Error;
-        if (isOnboardingValidationError(err)) {
-          return reply.status(400).send({ ok: false, error: err.message });
+        if (isOnboardingValidationError(e)) {
+          return reply.status(400).send({ ok: false, error: e.message });
         }
-        const msg = err.message ?? '';
+        const msg = e instanceof Error ? (e.message ?? '') : String(e);
         const allowedPrefixes = [
           'Недопустимый URL',
           'Нет ни одного ответа',
@@ -103,7 +102,7 @@ export async function onboardingRoute(
         if (allowedPrefixes.some((p) => msg.startsWith(p))) {
           return reply.status(400).send({ ok: false, error: msg });
         }
-        request.log.error({ err }, 'Onboarding API server error');
+        request.log.error({ err: e }, 'Onboarding API server error');
         return reply.status(500).send({
           ok: false,
           error: 'Внутренняя ошибка сервера',
