@@ -193,7 +193,7 @@ async function runPipelinesForClient(
     await generationQueue.add('regenerate-text', {
       ...ctxPayload,
       rowIndex: task.rowIndex,
-      options: { isRevision: true, editorComment: task.comment ?? undefined, keepImage: true },
+      options: { isRevision: true, editorComment: task.comment ?? undefined },
     });
   }
 

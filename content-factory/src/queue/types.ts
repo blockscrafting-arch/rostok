@@ -19,7 +19,7 @@ export interface BaseJobPayload extends QueueContextPayload {
 export interface SemanticsJobPayload extends BaseJobPayload {}
 
 export interface GenerationJobPayload extends BaseJobPayload {
-  options?: { isRevision?: boolean; editorComment?: string; keepImage?: boolean };
+  options?: { isRevision?: boolean; editorComment?: string };
 }
 
 export interface ImageJobPayload extends BaseJobPayload {}

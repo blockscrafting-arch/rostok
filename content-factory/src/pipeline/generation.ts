@@ -1,6 +1,6 @@
 /**
- * Пайплайн генерации текста: заголовок → граундинг → черновик → очеловечивание → UTM → таблица (статус «Текст готов, ждём картинку»).
- * Картинка генерируется отдельно в imageGeneration.ts после generationTime (например 05:00).
+ * Пайплайн генерации текста: заголовок → граундинг → черновик → очеловечивание → UTM → таблица (статус «Готово к проверке»).
+ * Картинка — только после того, как менеджер поставит «Текст готов, ждём картинку» (см. scheduler + imageGeneration.ts).
  */
 import { buildUtmUrl } from '../utils/utm';
 import { groundArticleFacts } from '../ai/grounding';
@@ -18,8 +18,6 @@ import type { SheetTask, Settings, PipelineContext } from '../types';
 export interface GenerationOptions {
   isRevision?: boolean;
   editorComment?: string;
-  /** Не перезапускать генерацию картинки: после текста ставить «Готово к проверке», картинку не трогать. */
-  keepImage?: boolean;
 }
 
 const MAX_HEADLINE_LENGTH = 500;
@@ -31,7 +29,7 @@ export async function generationPipeline(
   options: GenerationOptions = {},
   context?: PipelineContext
 ): Promise<void> {
-  const { isRevision = false, editorComment, keepImage = false } = options;
+  const { isRevision = false, editorComment } = options;
   const aiClient = context?.aiClient ?? openrouter;
   const sheetCtx = context?.sheetContext;
 
@@ -109,7 +107,7 @@ export async function generationPipeline(
         utmUrl,
         costTextUsd,
       },
-      { statusAfter: keepImage ? 'Готово к проверке' : 'Текст готов, ждём картинку' },
+      { statusAfter: 'Готово к проверке' },
       sheetCtx
     );
 
