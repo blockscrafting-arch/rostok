@@ -8,9 +8,38 @@ import { mainLoop, stopScheduler } from './scheduler/scheduler';
 import { startWorkers, closeWorkers } from './workers';
 import { connection } from './queue';
 import { getApiServer, startApiServer } from './api/server';
+import { config } from './config';
 import { logInfo, logWarn, serializeError } from './utils/logger';
 
 setRetryNotifier(notify);
+
+/** Подсказка в логах: copy шаблона без OAuth = JWT SA → storageQuotaExceeded в личных папках Drive. */
+function logGoogleDriveTemplateCopyHint(): void {
+  const g = config.google;
+  const id = Boolean(g.driveCopyOAuthClientId?.trim());
+  const secret = Boolean(g.driveCopyOAuthClientSecret?.trim());
+  const rt = Boolean(g.driveCopyOAuthRefreshToken?.trim());
+  if (id && secret && rt) {
+    logInfo(
+      'Google Drive: копирование шаблона клиента — OAuth пользователя (не JWT сервисного аккаунта)'
+    );
+    return;
+  }
+  const missing = [
+    !id && 'GOOGLE_DRIVE_COPY_OAUTH_CLIENT_ID',
+    !secret && 'GOOGLE_DRIVE_COPY_OAUTH_CLIENT_SECRET',
+    !rt && 'GOOGLE_DRIVE_COPY_OAUTH_REFRESH_TOKEN',
+  ].filter(Boolean) as string[];
+  if (missing.length === 3) {
+    logWarn(
+      'Google Drive: не заданы GOOGLE_DRIVE_COPY_OAUTH_* (все три) — copy шаблона идёт от сервисного аккаунта; в стеке будет JWT → типично storageQuotaExceeded. Добавьте переменные в .env на сервере и перезапустите app.'
+    );
+  } else {
+    logWarn(
+      `Google Drive: OAuth для copy задан неполностью (как у SA). Добавьте в .env: ${missing.join(', ')}`
+    );
+  }
+}
 
 function handleShutdown(signal: string): void {
   logInfo(`Received ${signal}, shutting down gracefully...`);
@@ -41,6 +70,7 @@ process.on('SIGINT', () => handleShutdown('SIGINT'));
 process.on('SIGTERM', () => handleShutdown('SIGTERM'));
 
 logInfo('Content-Factory started');
+logGoogleDriveTemplateCopyHint();
 startWorkers();
 void startApiServer();
 mainLoop().catch((e) => {

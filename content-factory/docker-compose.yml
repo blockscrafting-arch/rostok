@@ -30,6 +30,7 @@ services:
     depends_on:
       - postgres
       - redis
+    # Весь .env подхватывается; для онбординга копии таблицы задайте все три GOOGLE_DRIVE_COPY_OAUTH_* иначе copy от SA → storageQuotaExceeded
     env_file: .env
     environment:
       DATABASE_URL: postgresql://user:${POSTGRES_PASSWORD:-password}@postgres:5432/content_factory
