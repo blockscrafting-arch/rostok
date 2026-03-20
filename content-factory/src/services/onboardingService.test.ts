@@ -225,29 +225,34 @@ describe('onboardingService', () => {
   });
 
   it('при сбое транскрибации аудио подставляет placeholder и продолжает', async () => {
-    const { transcribeAudio } = await import('../telegram/media');
-    vi.mocked(transcribeAudio).mockRejectedValueOnce(new Error('OpenRouter failed'));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const { transcribeAudio } = await import('../telegram/media');
+      vi.mocked(transcribeAudio).mockRejectedValueOnce(new Error('OpenRouter failed'));
 
-    const input = {
-      user: { name: 'Test', email: 'test@example.com' },
-      answers: [
-        { step: 1, question: 'Q1', answer: 'Текст', audio: null },
-        {
-          step: 2,
-          question: 'Q2',
-          answer: null,
-          audio: 'https://example.com/audio.webm',
-        },
-      ],
-    };
-    const result = await processWebOnboarding(input);
-    expect(result.clientId).toBe('client-123');
-    const { extractClientSettings } = await import('../ai/extractor');
-    expect(extractClientSettings).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.stringContaining('Текст'),
-        expect.stringContaining('Ошибка расшифровки аудио'),
-      ])
-    );
+      const input = {
+        user: { name: 'Test', email: 'test@example.com' },
+        answers: [
+          { step: 1, question: 'Q1', answer: 'Текст', audio: null },
+          {
+            step: 2,
+            question: 'Q2',
+            answer: null,
+            audio: 'https://example.com/audio.webm',
+          },
+        ],
+      };
+      const result = await processWebOnboarding(input);
+      expect(result.clientId).toBe('client-123');
+      const { extractClientSettings } = await import('../ai/extractor');
+      expect(extractClientSettings).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.stringContaining('Текст'),
+          expect.stringContaining('Ошибка расшифровки аудио'),
+        ])
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 });
