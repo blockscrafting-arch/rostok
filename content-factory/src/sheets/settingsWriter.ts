@@ -1,12 +1,25 @@
 /**
  * Запись настроек онбординга в лист «Настройки» клиентской таблицы (для менеджера в UI).
  * Источник правды для пайплайна мульти-клиента — PostgreSQL (mergeSettings); лист дублирует ключевые поля для правки глазами.
+ *
+ * Основной (legacy) клиент: в «ДНК Бренда» часто URL Google Doc. Новые клиенты из веб-онбординга — текст ДНК;
+ * пишем в ту же метку «ДНК Бренда», подменяя B (для новых таблиц это ожидаемо).
  */
 import { sheets } from './client';
 import type { OnboardingSettingsForDb } from '../types/onboarding';
 import { logInfo, logWarn, serializeError } from '../utils/logger';
 
 const SHEET_NAME = 'Настройки';
+
+/** Найти номер строки по ключу; для ДНК учитываем оба варианта подписи из шаблона (readSettings). */
+function rowForSettingsKey(key: string, keyToRow: Map<string, number>): number | undefined {
+  const direct = keyToRow.get(key);
+  if (direct != null) return direct;
+  if (key === 'ДНК Бренда') {
+    return keyToRow.get('ДНК бренда');
+  }
+  return undefined;
+}
 
 /** Пары ключ (кол. A) — значение (кол. B) для листа «Настройки». Экспорт для тестов. */
 export function buildOnboardingSettingsSheetPairs(settings: OnboardingSettingsForDb): Array<[string, string]> {
@@ -21,8 +34,7 @@ export function buildOnboardingSettingsSheetPairs(settings: OnboardingSettingsFo
     ['Режим генерации картинки', imageModeLabel],
     ['Интервал публикации (мин)', String(Math.max(1, settings.publishIntervalMin ?? 60))],
     ['URL логотипа', settings.logoUrl?.trim() ?? ''],
-    // Отдельные подписи, чтобы не путать с ячейкой «ДНК Бренда» (часто URL на Google Doc)
-    ['ДНК бренда (онбординг)', settings.dnaBrand?.trim() ?? ''],
+    ['ДНК Бренда', settings.dnaBrand?.trim() ?? ''],
     ['Детали продукта', settings.productDetails?.trim() ?? ''],
     ['CTA', settings.cta?.trim() ?? ''],
     ['Стиль картинки', settings.imageStyle?.trim() ?? ''],
@@ -67,7 +79,7 @@ export async function syncOnboardingSettingsToSettingsSheet(
     const data: { range: string; values: string[][] }[] = [];
 
     for (const [key, val] of pairs) {
-      const rowNum = keyToRow.get(key);
+      const rowNum = rowForSettingsKey(key, keyToRow);
       if (rowNum != null) {
         data.push({ range: `'${SHEET_NAME}'!B${rowNum}`, values: [[val]] });
       } else {

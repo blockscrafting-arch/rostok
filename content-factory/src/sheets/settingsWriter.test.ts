@@ -31,7 +31,7 @@ describe('buildOnboardingSettingsSheetPairs', () => {
     expect(map['Режим модерации']).toBe('да');
     expect(map['Время генерации']).toBe('05:00');
     expect(map['Режим генерации картинки']).toBe('По времени');
-    expect(map['ДНК бренда (онбординг)']).toBe('ДНК тест');
+    expect(map['ДНК Бренда']).toBe('ДНК тест');
     expect(map['Типы контента']).toBe('обзор, ТОП-10');
     expect(map['Доверенные сайты']).toContain('https://a.com');
   });
