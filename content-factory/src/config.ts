@@ -25,8 +25,12 @@ function envNum(key: string, defaultValue: number): number {
 export const config = {
   google: {
     serviceAccountKey: path.resolve(process.cwd(), env('GOOGLE_SERVICE_ACCOUNT_KEY')),
+    /** Рабочая таблица (планировщик при одном канале / legacy). Не использовать как источник копии для онбординга. */
     spreadsheetId: env('SPREADSHEET_ID'),
-    /** ID эталонной таблицы для копирования новым клиентам (опционально). */
+    /**
+     * Отдельная эталонная таблица для копии при онбординге / create-client-table.
+     * Обязан отличаться от SPREADSHEET_ID; иначе копируется «основная» таблица с данными.
+     */
     templateSpreadsheetId: envOptional('TEMPLATE_SPREADSHEET_ID'),
     /**
      * ID папки Google Drive, куда класть копии таблиц клиентов.

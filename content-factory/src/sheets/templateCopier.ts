@@ -183,6 +183,22 @@ export interface CreateClientTableResult {
 }
 
 /**
+ * Запретить копировать «основную» таблицу из SPREADSHEET_ID вместо шаблона (частая ошибка в .env).
+ */
+export function assertTemplateSpreadsheetIdNotMain(
+  templateSpreadsheetId: string,
+  mainSpreadsheetId: string
+): void {
+  const t = templateSpreadsheetId.trim();
+  const m = mainSpreadsheetId.trim();
+  if (t.length > 0 && m.length > 0 && t === m) {
+    throw new Error(
+      'TEMPLATE_SPREADSHEET_ID совпадает с SPREADSHEET_ID: для новых клиентов нужна отдельная эталонная таблица. SPREADSHEET_ID — рабочая таблица (планировщик/legacy); TEMPLATE_SPREADSHEET_ID — только чистый шаблон с другим ID из URL.'
+    );
+  }
+}
+
+/**
  * Создать таблицу клиента: копирование шаблона, выдача прав сервисному аккаунту, скрытие технических колонок.
  * @param templateSpreadsheetId — ID эталонной таблицы (или из config.google.templateSpreadsheetId).
  * @param clientName — название для копии (например «Контент — ООО Ромашка»).
@@ -195,6 +211,8 @@ export async function createClientTable(
   clientName: string,
   options?: { shareWithEmail?: string; hideTechnicalColumns?: boolean; copyParentFolderId?: string }
 ): Promise<CreateClientTableResult> {
+  assertTemplateSpreadsheetIdNotMain(templateSpreadsheetId, config.google.spreadsheetId);
+
   const parentFromOpts = options?.copyParentFolderId?.trim();
   const parentFromConfig = config.google.clientTablesFolderId?.trim();
   const parentFolderId = parentFromOpts || parentFromConfig;

@@ -5,6 +5,7 @@
 import { prisma } from '../db/client';
 import { createClientTable } from '../sheets/templateCopier';
 import { config } from '../config';
+import { logInfo } from '../utils/logger';
 import type { OnboardingSettingsForDb } from '../types/onboarding';
 
 export interface ProvisionClientInput {
@@ -69,6 +70,9 @@ export async function provisionClient(input: ProvisionClientInput): Promise<Prov
   let spreadsheetUrl: string | null = null;
 
   if (templateId) {
+    logInfo('Provision client table: Drive copy source = TEMPLATE_SPREADSHEET_ID (not SPREADSHEET_ID)', {
+      templateSpreadsheetId: templateId,
+    });
     const result = await createClientTable(templateId, clientName, {
       shareWithEmail: email,
       hideTechnicalColumns: true,

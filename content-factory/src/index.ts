@@ -16,6 +16,13 @@ setRetryNotifier(notify);
 /** Подсказка в логах: copy шаблона без OAuth = JWT SA → storageQuotaExceeded в личных папках Drive. */
 function logGoogleDriveTemplateCopyHint(): void {
   const g = config.google;
+  const tpl = g.templateSpreadsheetId?.trim();
+  const main = g.spreadsheetId?.trim();
+  if (tpl && main && tpl === main) {
+    logWarn(
+      'TEMPLATE_SPREADSHEET_ID совпадает с SPREADSHEET_ID — онбординг будет падать при createClientTable или копировать не тот файл. Задайте отдельный ID шаблона.'
+    );
+  }
   const id = Boolean(g.driveCopyOAuthClientId?.trim());
   const secret = Boolean(g.driveCopyOAuthClientSecret?.trim());
   const rt = Boolean(g.driveCopyOAuthRefreshToken?.trim());
