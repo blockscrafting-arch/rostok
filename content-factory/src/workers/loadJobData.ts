@@ -9,6 +9,7 @@ import { readSettings } from '../sheets/settings';
 import { getAdminSettings } from '../db/repositories/adminSettings';
 import { getClientWithSettings } from '../db/repositories/clients';
 import { mergeSettings } from '../settings/mergeSettings';
+import { logWarn } from '../utils/logger';
 import type { Settings } from '../types';
 import type { BaseJobPayload } from '../queue/types';
 import type { LoadedJobData } from '../queue/types';
@@ -28,10 +29,20 @@ export function invalidateClientSettingsCache(clientId: string): void {
 
 export async function loadTaskAndSettings(payload: BaseJobPayload): Promise<LoadedJobData> {
   let settings: Settings;
-  if (payload.clientId && payload.clientId !== 'default') {
+  /** Одна таблица из .env: в очереди clientId = "default", в БД строки клиента нет — только лист «Настройки». */
+  const legacySingleTable =
+    !payload.clientId?.trim() || payload.clientId.trim() === 'default';
+
+  if (!legacySingleTable) {
     settings = await settingsCache.getOrFetch(`client:${payload.clientId}`, async () => {
       const client = await getClientWithSettings(payload.clientId!);
-      if (!client) throw new Error(`Client not found: ${payload.clientId}`);
+      if (!client) {
+        logWarn('Client not in DB, using sheet settings for job', {
+          clientId: payload.clientId,
+          spreadsheetId: payload.spreadsheetId,
+        });
+        return readSettings({ spreadsheetId: payload.spreadsheetId });
+      }
       const admin = await getAdminSettings();
       if (!admin) throw new Error('Admin settings not found');
       return mergeSettings(admin, client, client.settings);
