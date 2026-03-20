@@ -88,5 +88,12 @@ export const config = {
     retryBaseDelayMs: envNum('RETRY_BASE_DELAY_MS', 2000),
     /** Таймаут запросов к OpenRouter, мс (защита от зависания). */
     openrouterTimeoutMs: envNum('OPENROUTER_TIMEOUT_MS', 120_000),
+    /**
+     * Мульти-клиент: на каждом цикле планировщика — лист «Настройки» → client_settings в БД.
+     * Отключить: DISABLE_SHEET_SETTINGS_SYNC=1
+     */
+    sheetSettingsSyncFromSheet: !/^(1|true|yes)$/i.test(
+      (process.env.DISABLE_SHEET_SETTINGS_SYNC ?? '').trim()
+    ),
   },
 } as const;

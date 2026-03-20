@@ -9,7 +9,8 @@ import { sendDailySummary } from '../telegram/notifier';
 import { sleep } from '../utils/sleep';
 import { logInfo, logToSheet, serializeError, getApiErrorResponsePreview } from '../utils/logger';
 import { getAdminSettings } from '../db/repositories/adminSettings';
-import { getActiveClientsWithSettings } from '../db/repositories/clients';
+import { getActiveClientsWithSettings, getClientWithSettings } from '../db/repositories/clients';
+import { syncClientSettingsFromSheet } from '../sheets/sheetSettingsSync';
 import { mergeSettings } from '../settings/mergeSettings';
 import {
   semanticsQueue,
@@ -273,17 +274,25 @@ export async function mainLoop(): Promise<void> {
             continue;
           }
           try {
-            const settings = mergeSettings(admin, client, client.settings);
+            if (config.schedule.sheetSettingsSyncFromSheet) {
+              await syncClientSettingsFromSheet(client.id);
+            }
+            const refreshed = await getClientWithSettings(client.id);
+            if (!refreshed?.settings) {
+              logInfo('Client skipped: no settings after sync', { clientId: client.id });
+              continue;
+            }
+            const settings = mergeSettings(admin, refreshed, refreshed.settings);
             pollIntervalMs = settings.pollInterval;
             summaryTime = settings.dailySummaryTime;
             const sheetContext = { spreadsheetId: client.spreadsheetId };
             const context = {
               sheetContext,
-              telegramChannelId: client.telegramChannelId ?? undefined,
+              telegramChannelId: refreshed.telegramChannelId ?? undefined,
             };
             const queueContext: QueueContext = {
-              clientId: client.id,
-              openrouterApiKey: client.openrouterApiKey,
+              clientId: refreshed.id,
+              openrouterApiKey: refreshed.openrouterApiKey,
             };
             const tasks = await readTasks({ spreadsheetId: client.spreadsheetId });
             const state = await getPublishState(client.id);

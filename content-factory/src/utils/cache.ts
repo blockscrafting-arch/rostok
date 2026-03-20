@@ -20,4 +20,9 @@ export class PromiseCache<T> {
     });
     return promise;
   }
+
+  /** Сбросить кэш по ключу (после синка данных из внешнего источника). */
+  invalidate(key: string): void {
+    this.cache.delete(key);
+  }
 }

@@ -135,25 +135,20 @@ export function parseCatalogMap(text: string): Record<string, string> {
   return map;
 }
 
-/**
- * Настройки хранятся в виде пар ключ-значение (колонки A, B) или одной таблицы.
- * Предполагаем: A — параметр, B — значение. Строки: Роль, Промпт 1, Промпт 2, Промпт 3, ДНК Бренда, Справочник каталога, Справочник фото, Шаблон UTM, Telegram Channel ID, Макс. статей в день, Режим модерации, Время сводки.
- * @param overrides.spreadsheetId — ID таблицы клиента; при отсутствии используется config (одна таблица).
- */
-export async function readSettings(overrides?: { spreadsheetId?: string }): Promise<Settings> {
-  const sid = overrides?.spreadsheetId ?? spreadsheetId;
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: sid,
-    range: `'${SHEET_NAME}'!A1:B50`,
-  });
-  const rows = (res.data.values ?? []) as string[][];
+/** Строки листа «Настройки» A:B → карта ключей (для readSettings и синка в БД). */
+export function rowsToSettingsKeyMap(rows: string[][] | null | undefined): Record<string, string> {
   const byKey: Record<string, string> = {};
-  for (const row of rows) {
+  for (const row of rows ?? []) {
     const key = String(row[0] ?? '').trim();
     const val = String(row[1] ?? '').trim();
     if (key) byKey[key] = val;
   }
+  return byKey;
+}
 
+const SETTINGS_SHEET_RANGE = `'${SHEET_NAME}'!A1:B300`;
+
+async function buildSettingsFromKeyMap(sid: string, byKey: Record<string, string>): Promise<Settings> {
   const get = (key: string, def: string) => byKey[key] ?? def;
   const dnaBrandUrl = get('ДНК Бренда', get('ДНК бренда', ''));
   const catalogDocUrl = get('Справочник каталога', get('Справочник каталога', ''));
@@ -209,4 +204,30 @@ export async function readSettings(overrides?: { spreadsheetId?: string }): Prom
     imageModel: get('Модель картинки', '') || undefined,
     headlinesCount: Math.max(1, parseInt(get('Макс. заголовков', '30'), 10) || 30),
   };
+}
+
+/**
+ * Одно чтение листа: Settings + сырой byKey (для синка в БД доп. полей: CTA, типы контента и т.д.).
+ */
+export async function readSettingsWithKeyMap(overrides?: {
+  spreadsheetId?: string;
+}): Promise<{ settings: Settings; byKey: Record<string, string> }> {
+  const sid = overrides?.spreadsheetId ?? spreadsheetId;
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sid,
+    range: SETTINGS_SHEET_RANGE,
+  });
+  const byKey = rowsToSettingsKeyMap((res.data.values ?? []) as string[][]);
+  const settings = await buildSettingsFromKeyMap(sid, byKey);
+  return { settings, byKey };
+}
+
+/**
+ * Настройки хранятся в виде пар ключ-значение (колонки A, B) или одной таблицы.
+ * Предполагаем: A — параметр, B — значение. Строки: Роль, Промпт 1, Промпт 2, Промпт 3, ДНК Бренда, Справочник каталога, Справочник фото, Шаблон UTM, Telegram Channel ID, Макс. статей в день, Режим модерации, Время сводки.
+ * @param overrides.spreadsheetId — ID таблицы клиента; при отсутствии используется config (одна таблица).
+ */
+export async function readSettings(overrides?: { spreadsheetId?: string }): Promise<Settings> {
+  const { settings } = await readSettingsWithKeyMap(overrides);
+  return settings;
 }

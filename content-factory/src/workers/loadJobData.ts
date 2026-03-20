@@ -19,6 +19,13 @@ const TASKS_TTL_MS = 5_000;
 const settingsCache = new PromiseCache<Settings>(SETTINGS_TTL_MS);
 const tasksCache = new PromiseCache<Awaited<ReturnType<typeof readTasks>>>(TASKS_TTL_MS);
 
+/** После синка листа «Настройки» → БД воркеры подхватят свежий mergeSettings. */
+export function invalidateClientSettingsCache(clientId: string): void {
+  if (clientId && clientId !== 'default') {
+    settingsCache.invalidate(`client:${clientId}`);
+  }
+}
+
 export async function loadTaskAndSettings(payload: BaseJobPayload): Promise<LoadedJobData> {
   let settings: Settings;
   if (payload.clientId && payload.clientId !== 'default') {
