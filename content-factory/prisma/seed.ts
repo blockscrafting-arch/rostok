@@ -1,8 +1,15 @@
 /**
  * Seed для Контент-Завод 2.0: admin_settings (дефолтные шаблоны) + клиент default.
  * Реальные мастер-промпты заказчик вносит вручную после миграции.
+ *
+ * Клиент id=default — для FK cost_records и job с clientId "default" (legacy-одна таблица).
+ *
+ * Важно: повторный seed по умолчанию НЕ перезаписывает уже существующую строку default
+ * (не трогаем isActive, ключи и таблицу основного заказчика).
+ * Подтянуть поля из .env осознанно: SEED_SYNC_DEFAULT_CLIENT=1 (см. ниже).
  */
-import { PrismaClient } from '@prisma/client';
+import 'dotenv/config';
+import { PrismaClient, type Prisma } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -55,6 +62,19 @@ const DEFAULT_GROUNDING_PROMPT = `Собери проверенные факты
 
 const HEADLINE_RULES = `Ключевое слово должно быть в КЗ, если заголовок его упоминает. Разные заголовки — разные подмножества КЗ.`;
 
+function envTrim(key: string): string | undefined {
+  const v = process.env[key]?.trim();
+  return v || undefined;
+}
+
+/** Первый chat_id из TELEGRAM_NOTIFY_CHAT_ID (список через запятую). */
+function firstNotifyChatId(): string | undefined {
+  const raw = envTrim('TELEGRAM_NOTIFY_CHAT_ID');
+  if (!raw) return undefined;
+  const first = raw.split(',')[0]?.trim();
+  return first || undefined;
+}
+
 async function main() {
   await prisma.adminSettings.upsert({
     where: { id: 'global' },
@@ -84,19 +104,50 @@ async function main() {
     },
   });
 
-  // Клиент для legacy-режима (одна таблица из config). Без него cost_records не пишутся (FK).
+  // Только если строки ещё нет (новый стенд). isActive=false — включать вручную в NocoDB/SQL при необходимости.
   await prisma.client.upsert({
     where: { id: 'default' },
     create: {
       id: 'default',
       name: 'Основной',
       niche: 'legacy',
-      openrouterApiKey: 'legacy-placeholder',
+      openrouterApiKey: envTrim('OPENROUTER_API_KEY') ?? 'legacy-placeholder',
+      spreadsheetId: envTrim('SPREADSHEET_ID') ?? null,
+      telegramChannelId: envTrim('TELEGRAM_CHANNEL_ID') ?? null,
+      notifyChatId: firstNotifyChatId() ?? null,
       isActive: false,
       onboardingDone: true,
     },
     update: {},
   });
+
+  // Явное решение оператора: обновить default из .env (не запускать в CI без нужды).
+  if (envTrim('SEED_SYNC_DEFAULT_CLIENT') === '1') {
+    const data: Prisma.ClientUpdateInput = {};
+    if (process.env.SPREADSHEET_ID !== undefined) {
+      data.spreadsheetId = envTrim('SPREADSHEET_ID') ?? null;
+    }
+    if (process.env.OPENROUTER_API_KEY !== undefined) {
+      data.openrouterApiKey = envTrim('OPENROUTER_API_KEY') ?? 'legacy-placeholder';
+    }
+    if (process.env.TELEGRAM_CHANNEL_ID !== undefined) {
+      data.telegramChannelId = envTrim('TELEGRAM_CHANNEL_ID') ?? null;
+    }
+    if (process.env.TELEGRAM_NOTIFY_CHAT_ID !== undefined) {
+      data.notifyChatId = firstNotifyChatId() ?? null;
+    }
+    if (Object.keys(data).length > 0) {
+      await prisma.client.update({ where: { id: 'default' }, data });
+    }
+    const act = envTrim('SEED_DEFAULT_CLIENT_ACTIVE');
+    if (act === '1' || act === 'true') {
+      await prisma.client.update({ where: { id: 'default' }, data: { isActive: true } });
+    }
+    if (act === '0' || act === 'false') {
+      await prisma.client.update({ where: { id: 'default' }, data: { isActive: false } });
+    }
+    console.log('Seed: client default обновлён из .env (SEED_SYNC_DEFAULT_CLIENT=1)');
+  }
 
   console.log('Seed: admin_settings + default client OK');
 }

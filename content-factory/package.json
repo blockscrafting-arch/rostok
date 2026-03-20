@@ -13,6 +13,7 @@
     "create-client-table": "ts-node cli/create-client-table.ts",
     "clear-client-stats": "ts-node scripts/clear-client-stats.ts",
     "seed:dev": "ts-node prisma/seed.ts",
+    "db:seed": "npm run build && prisma db seed",
     "test": "vitest",
     "test:run": "vitest run"
   },
