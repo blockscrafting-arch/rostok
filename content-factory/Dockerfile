@@ -20,6 +20,6 @@ RUN npx prisma generate
 COPY --from=builder /app/dist ./dist
 ENV NODE_ENV=production
 EXPOSE 3100
-# При старте: применить схему БД (prisma db push), затем запустить приложение.
-# Для production с миграциями: замените на "prisma migrate deploy".
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss 2>/dev/null || true && node dist/index.js"]
+# Не запускать prisma db push при старте: при общей БД с NocoDB Prisma удалит все таблицы,
+# которых нет в schema.prisma (nc_* и др.). Схему обновлять вручную: см. ДЕПЛОЙ_VPS.md
+CMD ["node", "dist/index.js"]
