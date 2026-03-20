@@ -113,12 +113,19 @@ export async function copySpreadsheetFromTemplate(
 
 /**
  * Выдать доступ на запись (writer) указанному email к файлу/таблице.
+ * Для людей (не сервисного аккаунта) включаем sendNotificationEmail: иначе Drive API 400 для адресов
+ * без привязанного Google-аккаунта («must check Notify people»).
+ * Для SA уведомления не нужны и остаются выключенными.
  */
 export async function shareWithEmail(
   fileId: string,
   email: string,
   role: 'writer' | 'reader' = 'writer'
 ): Promise<void> {
+  const trimmed = email.trim();
+  const saEmail = getServiceAccountEmail().toLowerCase();
+  const sendNotificationEmail = trimmed.toLowerCase() !== saEmail;
+
   const auth = new google.auth.GoogleAuth({
     keyFile: config.google.serviceAccountKey,
     scopes: ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/drive.file'],
@@ -129,12 +136,12 @@ export async function shareWithEmail(
     requestBody: {
       type: 'user',
       role,
-      emailAddress: email.trim(),
+      emailAddress: trimmed,
     },
-    sendNotificationEmail: false,
+    sendNotificationEmail,
     supportsAllDrives: true,
   });
-  logInfo('Shared file with email', { fileId, email: email.trim(), role });
+  logInfo('Shared file with email', { fileId, email: trimmed, role, sendNotificationEmail });
 }
 
 /**
