@@ -1,0 +1,97 @@
+/**
+ * Запись настроек онбординга в лист «Настройки» клиентской таблицы (для менеджера в UI).
+ * Источник правды для пайплайна мульти-клиента — PostgreSQL (mergeSettings); лист дублирует ключевые поля для правки глазами.
+ */
+import { sheets } from './client';
+import type { OnboardingSettingsForDb } from '../types/onboarding';
+import { logInfo, logWarn, serializeError } from '../utils/logger';
+
+const SHEET_NAME = 'Настройки';
+
+/** Пары ключ (кол. A) — значение (кол. B) для листа «Настройки». Экспорт для тестов. */
+export function buildOnboardingSettingsSheetPairs(settings: OnboardingSettingsForDb): Array<[string, string]> {
+  const imageModeLabel =
+    String(settings.imageGenMode ?? '').toLowerCase() === 'immediate' ? 'Сразу' : 'По времени';
+
+  const pairs: Array<[string, string]> = [
+    ['Роль', settings.role?.trim() ?? ''],
+    ['Макс. статей в день', String(Math.max(1, settings.maxArticlesPerDay ?? 5))],
+    ['Режим модерации', settings.moderationEnabled ? 'да' : 'нет'],
+    ['Время генерации', (settings.generationTime ?? '05:00').trim() || '05:00'],
+    ['Режим генерации картинки', imageModeLabel],
+    ['Интервал публикации (мин)', String(Math.max(1, settings.publishIntervalMin ?? 60))],
+    ['URL логотипа', settings.logoUrl?.trim() ?? ''],
+    // Отдельные подписи, чтобы не путать с ячейкой «ДНК Бренда» (часто URL на Google Doc)
+    ['ДНК бренда (онбординг)', settings.dnaBrand?.trim() ?? ''],
+    ['Детали продукта', settings.productDetails?.trim() ?? ''],
+    ['CTA', settings.cta?.trim() ?? ''],
+    ['Стиль картинки', settings.imageStyle?.trim() ?? ''],
+    ['Тональность', settings.tonality?.trim() ?? ''],
+    ['Аудитория', settings.targetAudience?.trim() ?? ''],
+    ['Негативный промпт', settings.negativePrompt?.trim() ?? ''],
+    ['Типы контента', (settings.contentTypes ?? []).join(', ')],
+    ['Доверенные сайты', (settings.trustedSites ?? []).join('\n')],
+    ['Режим операции ИИ', settings.operationMode?.trim() ?? 'safe'],
+  ];
+
+  return pairs;
+}
+
+/**
+ * Обновить или добавить строки A:B на листе «Настройки».
+ * Не бросает наружу — при ошибке пишет warn (онбординг уже зафиксирован в БД).
+ */
+export async function syncOnboardingSettingsToSettingsSheet(
+  spreadsheetId: string,
+  settings: OnboardingSettingsForDb
+): Promise<void> {
+  const sid = spreadsheetId.trim();
+  if (!sid) return;
+
+  const pairs = buildOnboardingSettingsSheetPairs(settings);
+  if (pairs.length === 0) return;
+
+  try {
+    const getRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: sid,
+      range: `'${SHEET_NAME}'!A1:B300`,
+    });
+    const rows = (getRes.data.values ?? []) as string[][];
+    const keyToRow = new Map<string, number>();
+    for (let i = 0; i < rows.length; i++) {
+      const key = String(rows[i]?.[0] ?? '').trim();
+      if (key) keyToRow.set(key, i + 1);
+    }
+
+    let nextRow = rows.length + 1;
+    const data: { range: string; values: string[][] }[] = [];
+
+    for (const [key, val] of pairs) {
+      const rowNum = keyToRow.get(key);
+      if (rowNum != null) {
+        data.push({ range: `'${SHEET_NAME}'!B${rowNum}`, values: [[val]] });
+      } else {
+        data.push({
+          range: `'${SHEET_NAME}'!A${nextRow}:B${nextRow}`,
+          values: [[key, val]],
+        });
+        keyToRow.set(key, nextRow);
+        nextRow += 1;
+      }
+    }
+
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId: sid,
+      requestBody: {
+        valueInputOption: 'USER_ENTERED',
+        data,
+      },
+    });
+    logInfo('Onboarding settings synced to sheet', { spreadsheetId: sid, rowsUpdated: data.length });
+  } catch (e) {
+    logWarn('syncOnboardingSettingsToSettingsSheet failed', {
+      spreadsheetId: sid,
+      error: serializeError(e).message,
+    });
+  }
+}

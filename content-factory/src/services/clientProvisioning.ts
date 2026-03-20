@@ -4,6 +4,7 @@
  */
 import { prisma } from '../db/client';
 import { createClientTable } from '../sheets/templateCopier';
+import { syncOnboardingSettingsToSettingsSheet } from '../sheets/settingsWriter';
 import { config } from '../config';
 import { logInfo } from '../utils/logger';
 import type { OnboardingSettingsForDb } from '../types/onboarding';
@@ -79,6 +80,8 @@ export async function provisionClient(input: ProvisionClientInput): Promise<Prov
     });
     spreadsheetId = result.spreadsheetId;
     spreadsheetUrl = result.spreadsheetUrl;
+
+    await syncOnboardingSettingsToSettingsSheet(spreadsheetId, settings);
 
     await prisma.client.update({
       where: { id: client.id },
