@@ -310,6 +310,46 @@ export async function mainLoop(): Promise<void> {
             dailyErrors.push(`Client ${client.name}: ${msg}`);
           }
         }
+
+        // Легаси-таблица заказчика из SPREADSHEET_ID (.env): не синкаем в БД, но опрашиваем параллельно с мульти-клиентами,
+        // если этот файл не совпадает ни с одним spreadsheetId активного клиента (иначе двойной опрос).
+        const legacySpreadsheetId = config.google.spreadsheetId?.trim();
+        if (legacySpreadsheetId) {
+          const legacyCoveredByClient = clients.some(
+            (c) => c.spreadsheetId?.trim() === legacySpreadsheetId
+          );
+          if (!legacyCoveredByClient) {
+            try {
+              const settings = await readSettings({ spreadsheetId: legacySpreadsheetId });
+              const tasks = await readTasks({ spreadsheetId: legacySpreadsheetId });
+              pollIntervalMs = Math.min(pollIntervalMs, settings.pollInterval);
+              const context = { sheetContext: { spreadsheetId: legacySpreadsheetId } };
+              const queueContext: QueueContext = {
+                clientId: 'default',
+                openrouterApiKey: config.openrouter.apiKey,
+              };
+              const state = await getPublishState('default');
+              const nextState = await runPipelinesForClient(
+                settings,
+                tasks,
+                context,
+                queueContext,
+                state,
+                dailyErrors,
+                today
+              );
+              await setPublishState('default', nextState);
+            } catch (e) {
+              const { message: msg } = serializeError(e);
+              logInfo('Legacy spreadsheet loop error', {
+                spreadsheetId: legacySpreadsheetId,
+                errorMessage: msg,
+                responsePreview: getApiErrorResponsePreview(e),
+              });
+              dailyErrors.push(`Legacy таблица: ${msg}`);
+            }
+          }
+        }
       } else {
         // Одна таблица из config (обратная совместимость). clientId='default' для cost_records (FK).
         const settings = await readSettings();
@@ -336,12 +376,35 @@ export async function mainLoop(): Promise<void> {
 
       if (dailySummarySentDate !== today && isAfterSummaryTime(summaryTime)) {
         try {
-          const summaryClients =
-            admin && clients.length > 0
-              ? clients
-                  .filter((c) => c.spreadsheetId?.trim())
-                  .map((c) => ({ id: c.id, name: c.name, spreadsheetId: c.spreadsheetId!, notifyChatId: c.notifyChatId ?? undefined }))
-              : [{ id: 'default', name: 'Основной', spreadsheetId: config.google.spreadsheetId }];
+          const legacyIdForSummary = config.google.spreadsheetId?.trim();
+          let summaryClients: Array<{
+            id: string;
+            name: string;
+            spreadsheetId: string;
+            notifyChatId?: string;
+          }>;
+          if (admin && clients.length > 0) {
+            summaryClients = clients
+              .filter((c) => c.spreadsheetId?.trim())
+              .map((c) => ({
+                id: c.id,
+                name: c.name,
+                spreadsheetId: c.spreadsheetId!,
+                notifyChatId: c.notifyChatId ?? undefined,
+              }));
+            if (
+              legacyIdForSummary &&
+              !summaryClients.some((c) => c.spreadsheetId === legacyIdForSummary)
+            ) {
+              summaryClients.push({
+                id: 'default',
+                name: 'Основной (legacy)',
+                spreadsheetId: legacyIdForSummary,
+              });
+            }
+          } else {
+            summaryClients = [{ id: 'default', name: 'Основной', spreadsheetId: config.google.spreadsheetId }];
+          }
           await sendDailySummary(
             dailyErrors.length ? dailyErrors : undefined,
             summaryClients ? { clients: summaryClients } : undefined
