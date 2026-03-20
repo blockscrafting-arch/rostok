@@ -19,5 +19,7 @@ COPY prisma ./prisma
 RUN npx prisma generate
 COPY --from=builder /app/dist ./dist
 ENV NODE_ENV=production
-# При старте: применить схему БД (prisma db push), затем запустить приложение
+EXPOSE 3100
+# При старте: применить схему БД (prisma db push), затем запустить приложение.
+# Для production с миграциями: замените на "prisma migrate deploy".
 CMD ["sh", "-c", "npx prisma db push --accept-data-loss 2>/dev/null || true && node dist/index.js"]

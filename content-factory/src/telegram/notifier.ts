@@ -20,6 +20,35 @@ function getNotifyChatIds(): string[] {
     .filter(Boolean);
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * Уведомить админов о новом брифе (веб или Telegram).
+ */
+export async function notifyNewBrief(
+  payload: { clientName: string; email: string; niche: string; spreadsheetUrl?: string | null },
+  source: 'web' | 'telegram'
+): Promise<void> {
+  const prefix = source === 'web' ? 'Новый клиент (веб-онбординг)!' : 'Новый клиент заполнил бриф!';
+  const linkLine = payload.spreadsheetUrl
+    ? `Ссылка на таблицу: ${escapeHtml(payload.spreadsheetUrl)}`
+    : 'Таблица: будет создана администратором.';
+  const text = [
+    prefix,
+    `Имя: ${escapeHtml(payload.clientName)}`,
+    `Email: ${escapeHtml(payload.email)}`,
+    `Ниша: ${escapeHtml(payload.niche)}`,
+    linkLine,
+  ].join('\n');
+  await notify(text);
+}
+
 /**
  * Отправить уведомление в чат(ы) заказчика (HTML).
  * Поддерживает несколько ID в TELEGRAM_NOTIFY_CHAT_ID через запятую.
@@ -45,14 +74,6 @@ async function sendToChat(chatId: string, message: string): Promise<void> {
   } catch (e) {
     console.error('Send to client failed:', { chatId, errorMessage: serializeError(e).message });
   }
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 function dateRangeDay(): { from: Date; to: Date } {

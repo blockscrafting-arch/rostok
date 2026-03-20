@@ -17,14 +17,19 @@
     "test:run": "vitest run"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.2",
     "@aws-sdk/client-s3": "^3.650.0",
+    "@fastify/bearer-auth": "^10.1.2",
+    "@fastify/rate-limit": "^10.3.0",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@prisma/client": "^6.19.2",
+    "ajv-formats": "^3.0.1",
     "bullmq": "^5.34.0",
     "dotenv": "^16.4.5",
+    "fastify": "^5.8.2",
     "googleapis": "^144.0.0",
     "ioredis": "^5.4.1",
     "openai": "^4.73.0",
+    "p-limit": "^7.3.0",
     "sharp": "^0.33.5",
     "telegraf": "^4.16.3"
   },

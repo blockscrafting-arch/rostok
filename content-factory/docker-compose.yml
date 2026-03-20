@@ -36,6 +36,8 @@ services:
       REDIS_URL: redis://redis:6379
     volumes:
       - ./secrets:/app/secrets:ro
+    ports:
+      - "3100:3100"
     restart: unless-stopped
 
   nocodb:

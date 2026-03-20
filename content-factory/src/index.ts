@@ -5,9 +5,9 @@ import 'dotenv/config';
 import { setRetryNotifier } from './utils/retry';
 import { notify } from './telegram/notifier';
 import { mainLoop, stopScheduler } from './scheduler/scheduler';
-import { launchOnboardingBot } from './telegram/onboardingBot';
 import { startWorkers, closeWorkers } from './workers';
 import { connection } from './queue';
+import { getApiServer, startApiServer } from './api/server';
 import { logInfo, logWarn, serializeError } from './utils/logger';
 
 setRetryNotifier(notify);
@@ -22,10 +22,15 @@ function handleShutdown(signal: string): void {
       process.exit(0);
     }
   }
-  Promise.all([
+  const closePromises: Promise<unknown>[] = [
     closeWorkers(),
     connection.quit().catch(() => {}),
-  ]).finally(exit);
+  ];
+  const api = getApiServer();
+  if (api) {
+    closePromises.push(api.close());
+  }
+  Promise.all(closePromises).finally(exit);
   setTimeout(() => {
     logWarn('Forced shutdown due to timeout');
     exit();
@@ -37,7 +42,7 @@ process.on('SIGTERM', () => handleShutdown('SIGTERM'));
 
 logInfo('Content-Factory started');
 startWorkers();
-launchOnboardingBot();
+void startApiServer();
 mainLoop().catch((e) => {
   logInfo('Fatal', { errorMessage: serializeError(e).message });
   process.exit(1);

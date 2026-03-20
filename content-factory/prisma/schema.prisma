@@ -82,16 +82,6 @@ model ClientSettings {
   @@map("client_settings")
 }
 
-model OnboardingStep {
-  id          String @id @default(uuid())
-  stepOrder   Int    @map("step_order")
-  description String
-  fileId      String @map("file_id")
-  fileType    String @map("file_type") @default("video_note")
-
-  @@map("onboarding_steps")
-}
-
 model Task {
   id          String   @id @default(uuid())
   clientId    String   @map("client_id")

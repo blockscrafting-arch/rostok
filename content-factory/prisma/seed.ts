@@ -1,5 +1,5 @@
 /**
- * Seed для Контент-Завод 2.0: admin_settings (дефолтные шаблоны) + onboarding_steps (заглушки file_id).
+ * Seed для Контент-Завод 2.0: admin_settings (дефолтные шаблоны) + клиент default.
  * Реальные мастер-промпты заказчик вносит вручную после миграции.
  */
 import { PrismaClient } from '@prisma/client';
@@ -55,20 +55,6 @@ const DEFAULT_GROUNDING_PROMPT = `Собери проверенные факты
 
 const HEADLINE_RULES = `Ключевое слово должно быть в КЗ, если заголовок его упоминает. Разные заголовки — разные подмножества КЗ.`;
 
-const ONBOARDING_STEPS = [
-  { stepOrder: 0, description: 'Приветствие' },
-  { stepOrder: 1, description: 'Голос бренда' },
-  { stepOrder: 2, description: 'Целевая аудитория' },
-  { stepOrder: 3, description: 'О продукте' },
-  { stepOrder: 4, description: 'Визуал (стиль картинок)' },
-  { stepOrder: 5, description: 'Форматы контента и роль ИИ' },
-  { stepOrder: 6, description: 'Источники и ссылки' },
-  { stepOrder: 7, description: 'Стоп-слова' },
-  { stepOrder: 8, description: 'Настройка автопилота' },
-  { stepOrder: 9, description: 'Призыв к действию (CTA)' },
-  { stepOrder: 10, description: 'Финал (сводка)' },
-];
-
 async function main() {
   await prisma.adminSettings.upsert({
     where: { id: 'global' },
@@ -112,23 +98,7 @@ async function main() {
     update: {},
   });
 
-  for (const step of ONBOARDING_STEPS) {
-    const existing = await prisma.onboardingStep.findFirst({
-      where: { stepOrder: step.stepOrder },
-    });
-    if (!existing) {
-      await prisma.onboardingStep.create({
-        data: {
-          stepOrder: step.stepOrder,
-          description: step.description,
-          fileId: '',
-          fileType: 'video_note',
-        },
-      });
-    }
-  }
-
-  console.log('Seed: admin_settings + default client + onboarding_steps OK');
+  console.log('Seed: admin_settings + default client OK');
 }
 
 main()

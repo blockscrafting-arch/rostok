@@ -53,13 +53,15 @@ export const config = {
     botToken: env('TELEGRAM_BOT_TOKEN'),
     channelId: env('TELEGRAM_CHANNEL_ID'),
     notifyChatId: env('TELEGRAM_NOTIFY_CHAT_ID'),
-    /** Токен бота для онбординга новых клиентов (отдельный бот от BotFather). */
-    onboardingBotToken: envOptional('ONBOARDING_BOT_TOKEN'),
-    /** Ссылка на инструкцию для менеджера (Telegraph). Добавляется в финальное сообщение онбординга. */
-    managerInstructionUrl: envOptional('MANAGER_INSTRUCTION_URL'),
   },
   redis: {
     url: envOptional('REDIS_URL', 'redis://localhost:6379'),
+  },
+  api: {
+    /** Порт HTTP API (POST /api/onboarding). При 0 или отсутствии ONBOARDING_API_SECRET — API не запускается. */
+    port: envNum('API_PORT', 3100),
+    /** Bearer-токен для авторизации веб-онбординга. Обязателен для запуска API. */
+    secret: envOptional('ONBOARDING_API_SECRET'),
   },
   schedule: {
     pollIntervalMs: envNum('POLL_INTERVAL_MS', 60_000),
