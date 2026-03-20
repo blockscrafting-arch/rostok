@@ -86,6 +86,7 @@ export async function shareWithEmail(
       emailAddress: email.trim(),
     },
     sendNotificationEmail: false,
+    supportsAllDrives: true,
   });
   logInfo('Shared file with email', { fileId, email: email.trim(), role });
 }
@@ -134,13 +135,21 @@ export interface CreateClientTableResult {
  * @param clientName — название для копии (например «Контент — ООО Ромашка»).
  * @param options.shareWithEmail — если задан, дополнительно выдать доступ этому email (по умолчанию выдаётся только сервисному аккаунту).
  * @param options.hideTechnicalColumns — скрыть колонки P, Q (по умолчанию true).
+ * @param options.copyParentFolderId — ID папки Drive для копии (иначе из config.google.clientTablesFolderId; без папцы копия идёт в диск SA → часто quota exceeded).
  */
 export async function createClientTable(
   templateSpreadsheetId: string,
   clientName: string,
-  options?: { shareWithEmail?: string; hideTechnicalColumns?: boolean }
+  options?: { shareWithEmail?: string; hideTechnicalColumns?: boolean; copyParentFolderId?: string }
 ): Promise<CreateClientTableResult> {
-  const newId = await copySpreadsheetFromTemplate(templateSpreadsheetId, clientName);
+  const parentFromOpts = options?.copyParentFolderId?.trim();
+  const parentFromConfig = config.google.clientTablesFolderId?.trim();
+  const parentFolderId = parentFromOpts || parentFromConfig;
+  const newId = await copySpreadsheetFromTemplate(
+    templateSpreadsheetId,
+    clientName,
+    parentFolderId ? { parents: [parentFolderId] } : undefined
+  );
   const saEmail = getServiceAccountEmail();
   await shareWithEmail(newId, saEmail, 'writer');
   if (options?.shareWithEmail?.trim()) {

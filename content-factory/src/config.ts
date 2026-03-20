@@ -28,6 +28,12 @@ export const config = {
     spreadsheetId: env('SPREADSHEET_ID'),
     /** ID эталонной таблицы для копирования новым клиентам (опционально). */
     templateSpreadsheetId: envOptional('TEMPLATE_SPREADSHEET_ID'),
+    /**
+     * ID папки Google Drive, куда класть копии таблиц клиентов.
+     * Обязательно задать, если копирует сервисный аккаунт: без parents копия попадает в «Мой диск» SA (~0 квоты) → storageQuotaExceeded.
+     * Папка должна быть расшарена на email сервисного аккаунта с правом редактора (или общий диск Shared drive).
+     */
+    clientTablesFolderId: envOptional('GOOGLE_DRIVE_CLIENT_TABLES_FOLDER_ID'),
     /** Email админа — всегда выдаётся доступ writer к новым таблицам клиентов. */
     adminEmail: envOptional('ADMIN_GOOGLE_EMAIL'),
   },
