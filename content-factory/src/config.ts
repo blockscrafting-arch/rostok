@@ -30,10 +30,18 @@ export const config = {
     templateSpreadsheetId: envOptional('TEMPLATE_SPREADSHEET_ID'),
     /**
      * ID папки Google Drive, куда класть копии таблиц клиентов.
-     * Обязательно задать, если копирует сервисный аккаунт: без parents копия попадает в «Мой диск» SA (~0 квоты) → storageQuotaExceeded.
-     * Папка должна быть расшарена на email сервисного аккаунта с правом редактора (или общий диск Shared drive).
+     * Важно: при копировании от имени SA владельцем файла остаётся SA — у него нет квоты → storageQuotaExceeded,
+     * даже если папка в вашем «Моём диске». Обход: папка на Shared drive (Workspace) + SA в участниках, либо OAuth ниже.
      */
     clientTablesFolderId: envOptional('GOOGLE_DRIVE_CLIENT_TABLES_FOLDER_ID'),
+    /**
+     * OAuth 2.0 (Desktop app) + refresh token владельца с квотой: копирование шаблона через Drive API от имени этого пользователя.
+     * После копии права как раньше выдаются сервисному аккаунту. Задавать все три или ни одного.
+     * Scope при выдаче токена: https://www.googleapis.com/auth/drive (шаблон и папка должны быть доступны этому Google-аккаунту).
+     */
+    driveCopyOAuthClientId: envOptional('GOOGLE_DRIVE_COPY_OAUTH_CLIENT_ID'),
+    driveCopyOAuthClientSecret: envOptional('GOOGLE_DRIVE_COPY_OAUTH_CLIENT_SECRET'),
+    driveCopyOAuthRefreshToken: envOptional('GOOGLE_DRIVE_COPY_OAUTH_REFRESH_TOKEN'),
     /** Email админа — всегда выдаётся доступ writer к новым таблицам клиентов. */
     adminEmail: envOptional('ADMIN_GOOGLE_EMAIL'),
   },

@@ -4,7 +4,9 @@
  * Sheets API: скрытие технических колонок (P = Символы, Q = Запланировано).
  *
  * Требования к шаблону: листы «Задания», «Настройки», «Статистика», «Лог»; структура колонок как в writer/tasks.
- * Сервисному аккаунту нужен доступ к шаблону (как минимум «Просмотр») для копирования.
+ * Копирование: по умолчанию от SA — владелец копии = SA, квоты почти нет → часто 403 storageQuotaExceeded.
+ * Решения: (1) GOOGLE_DRIVE_COPY_OAUTH_* — копия от пользователя с квотой; (2) папка на Shared drive + SA как участник.
+ * Сервисному аккаунту после копии выдаётся writer на новый файл.
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -29,6 +31,65 @@ export function getServiceAccountEmail(): string {
   return json.client_email;
 }
 
+/** Три переменные OAuth заданы — копируем шаблон от имени пользователя (квота на его Drive / Shared drive). */
+function hasDriveCopyOAuth(): boolean {
+  const id = config.google.driveCopyOAuthClientId?.trim();
+  const secret = config.google.driveCopyOAuthClientSecret?.trim();
+  const rt = config.google.driveCopyOAuthRefreshToken?.trim();
+  return Boolean(id && secret && rt);
+}
+
+async function driveCopyAsUserOAuth(
+  templateSpreadsheetId: string,
+  requestBody: { name: string; parents?: string[] }
+): Promise<string> {
+  const oauth2 = new google.auth.OAuth2(
+    config.google.driveCopyOAuthClientId!.trim(),
+    config.google.driveCopyOAuthClientSecret!.trim()
+  );
+  oauth2.setCredentials({
+    refresh_token: config.google.driveCopyOAuthRefreshToken!.trim(),
+  });
+  logInfo('Drive template copy: using user OAuth (not service account)');
+  const drive = google.drive({ version: 'v3', auth: oauth2 });
+  return executeDriveFileCopy(drive, templateSpreadsheetId, requestBody);
+}
+
+async function driveCopyAsServiceAccount(
+  templateSpreadsheetId: string,
+  requestBody: { name: string; parents?: string[] }
+): Promise<string> {
+  const googleAuth = new google.auth.GoogleAuth({
+    keyFile: config.google.serviceAccountKey,
+    scopes: [
+      'https://www.googleapis.com/auth/drive',
+      'https://www.googleapis.com/auth/drive.file',
+    ],
+  });
+  const auth = await googleAuth.getClient();
+  // JWT от SA принимается Drive API; тип getClient() шире, чем ожидает overload google.drive().
+  const drive = google.drive({ version: 'v3', auth: auth as Parameters<typeof google.drive>[0]['auth'] });
+  return executeDriveFileCopy(drive, templateSpreadsheetId, requestBody);
+}
+
+async function executeDriveFileCopy(
+  drive: ReturnType<typeof google.drive>,
+  templateSpreadsheetId: string,
+  requestBody: { name: string; parents?: string[] }
+): Promise<string> {
+  const res = await drive.files.copy({
+    fileId: templateSpreadsheetId,
+    requestBody,
+    supportsAllDrives: true,
+  });
+  const newId = res.data.id;
+  if (!newId) {
+    throw new Error('Drive copy did not return file id');
+  }
+  logInfo('Template copied', { templateId: templateSpreadsheetId, newId, newTitle: requestBody.name });
+  return newId;
+}
+
 /**
  * Копировать таблицу по ID (Drive: файл типа spreadsheet).
  * @param templateSpreadsheetId — ID эталонной таблицы.
@@ -41,28 +102,13 @@ export async function copySpreadsheetFromTemplate(
   newTitle: string,
   options?: { parents?: string[] }
 ): Promise<string> {
-  const auth = new google.auth.GoogleAuth({
-    keyFile: config.google.serviceAccountKey,
-    scopes: [
-      'https://www.googleapis.com/auth/drive',
-      'https://www.googleapis.com/auth/drive.file',
-    ],
-  });
-  const drive = google.drive({ version: 'v3', auth });
   const requestBody: { name: string; parents?: string[] } = { name: newTitle };
   if (options?.parents?.length) requestBody.parents = options.parents;
 
-  const res = await drive.files.copy({
-    fileId: templateSpreadsheetId,
-    requestBody,
-    supportsAllDrives: true,
-  });
-  const newId = res.data.id;
-  if (!newId) {
-    throw new Error('Drive copy did not return file id');
+  if (hasDriveCopyOAuth()) {
+    return driveCopyAsUserOAuth(templateSpreadsheetId, requestBody);
   }
-  logInfo('Template copied', { templateId: templateSpreadsheetId, newId, newTitle });
-  return newId;
+  return driveCopyAsServiceAccount(templateSpreadsheetId, requestBody);
 }
 
 /**
