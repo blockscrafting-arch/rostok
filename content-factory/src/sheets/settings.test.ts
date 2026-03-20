@@ -1,5 +1,28 @@
 import { describe, it, expect } from 'vitest';
-import { parseCatalogMap, parseImageGenerationMode } from './settings';
+import { parseCatalogMap, parseImageGenerationMode, looksLikeGoogleDocsUrl } from './settings';
+
+describe('looksLikeGoogleDocsUrl', () => {
+  it('true для типичной ссылки на документ', () => {
+    expect(
+      looksLikeGoogleDocsUrl('https://docs.google.com/document/d/abc123_xYZ/edit')
+    ).toBe(true);
+    expect(looksLikeGoogleDocsUrl('https://docs.google.com/document/d/abc123/preview')).toBe(true);
+  });
+
+  it('true для ссылки вида drive.google.com/file/d/... (тот же паттерн /d/id)', () => {
+    expect(
+      looksLikeGoogleDocsUrl('https://drive.google.com/file/d/1AbCdEfGhIjK/view?usp=sharing')
+    ).toBe(true);
+  });
+
+  it('false для текста ДНК без URL', () => {
+    expect(looksLikeGoogleDocsUrl('Бренд на стадии тестирования.')).toBe(false);
+  });
+
+  it('false для https без id документа', () => {
+    expect(looksLikeGoogleDocsUrl('https://example.com/page')).toBe(false);
+  });
+});
 
 describe('parseImageGenerationMode', () => {
   it('"Сразу" → immediate', () => {

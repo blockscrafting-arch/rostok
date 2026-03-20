@@ -111,6 +111,17 @@ async function fetchCatalogDocContent(docUrl: string): Promise<string> {
 }
 
 /**
+ * Значение ячейки похоже на ссылку Google Docs (а не произвольный текст ДНК).
+ * Иначе readSettings ошибочно вызывал fetchDocContent и писал warn «документ пуст».
+ */
+export function looksLikeGoogleDocsUrl(value: string): boolean {
+  const v = String(value ?? '').trim();
+  if (!v) return false;
+  if (!/^https?:\/\//i.test(v)) return false;
+  return /\/d\/[a-zA-Z0-9_-]+/i.test(v) || /docs\.google\.com\/document/i.test(v);
+}
+
+/**
  * Парсинг режима генерации картинки из значения ячейки. "Сразу" → immediate, иначе → scheduled. Экспорт для тестов.
  */
 export function parseImageGenerationMode(value: string): 'immediate' | 'scheduled' {
@@ -150,15 +161,22 @@ const SETTINGS_SHEET_RANGE = `'${SHEET_NAME}'!A1:B300`;
 
 async function buildSettingsFromKeyMap(sid: string, byKey: Record<string, string>): Promise<Settings> {
   const get = (key: string, def: string) => byKey[key] ?? def;
-  const dnaBrandUrl = get('ДНК Бренда', get('ДНК бренда', ''));
-  const catalogDocUrl = get('Справочник каталога', get('Справочник каталога', ''));
-  const referencePhotoDocUrl = get('Справочник фото', '');
+  const dnaRaw = get('ДНК Бренда', get('ДНК бренда', ''));
+  const dnaBrandUrl = looksLikeGoogleDocsUrl(dnaRaw) ? dnaRaw.trim() : '';
 
-  const [dnaBrandText, catalogRaw, referencePhotoRaw] = await Promise.all([
+  const catalogRawCell = get('Справочник каталога', get('Справочник каталога', ''));
+  const catalogDocUrl = looksLikeGoogleDocsUrl(catalogRawCell) ? catalogRawCell.trim() : '';
+
+  const refPhotoCell = get('Справочник фото', '');
+  const referencePhotoDocUrl = looksLikeGoogleDocsUrl(refPhotoCell) ? refPhotoCell.trim() : '';
+
+  const [dnaBrandTextFetched, catalogRaw, referencePhotoRaw] = await Promise.all([
     dnaBrandUrl ? fetchDocContent(dnaBrandUrl) : Promise.resolve(''),
     catalogDocUrl ? fetchCatalogDocContent(catalogDocUrl) : Promise.resolve(''),
     referencePhotoDocUrl ? fetchDocContent(referencePhotoDocUrl) : Promise.resolve(''),
   ]);
+
+  const dnaBrandText = dnaBrandTextFetched.trim() || (dnaBrandUrl ? '' : dnaRaw.trim());
 
   if (dnaBrandUrl && !dnaBrandText.trim()) {
     logWarn('ДНК Бренда: документ пуст или не загружен', { url: dnaBrandUrl });
