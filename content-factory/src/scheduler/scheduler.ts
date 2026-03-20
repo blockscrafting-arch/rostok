@@ -23,21 +23,23 @@ import { config } from '../config';
 import { getPublishState, setPublishState, type PublishState } from '../redis/publishState';
 import type { Settings } from '../types';
 import type { QueueContextPayload } from '../queue/types';
+import {
+  getMskParts,
+  minutesSinceMidnightMsk,
+  mskWallTimeToDate,
+  todayKeyMsk,
+} from '../utils/dateMsk';
 
-/** Дата в локальной таймзоне (при TZ=Europe/Moscow — по Москве) для сброса лимита статей в день. */
+/** Дата YYYY-MM-DD по Москве: сброс лимита статей в день, сводки и т.д. */
 function todayKey(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = d.getMonth() + 1;
-  const day = d.getDate();
-  return `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  return todayKeyMsk();
 }
 
 /** Проверка: наступило ли время сводки (например "21:00"). Невалидная строка — считаем, что не наступило. */
 function isAfterSummaryTime(summaryTime: string): boolean {
   const targetM = parseTimeHHMM(summaryTime);
   if (targetM === null) return false;
-  const nowM = minutesSinceMidnight(new Date());
+  const nowM = minutesSinceMidnightMsk();
   return nowM >= targetM;
 }
 
@@ -52,17 +54,12 @@ const IMAGE_GENERATION_WINDOW_MINUTES = 60;
 function isWithinImageGenerationWindow(timeStr: string, windowMinutes: number): boolean {
   const startM = parseTimeHHMM(timeStr);
   if (startM === null) return false;
-  const nowM = minutesSinceMidnight(new Date());
+  const nowM = minutesSinceMidnightMsk();
   const endM = startM + windowMinutes;
   if (endM <= 24 * 60) {
     return nowM >= startM && nowM < endM;
   }
   return nowM >= startM || nowM < endM % (24 * 60);
-}
-
-/** Текущее время в минутах с полуночи (локальная таймзона, ожидается TZ=Europe/Moscow). */
-function minutesSinceMidnight(d: Date): number {
-  return d.getHours() * 60 + d.getMinutes();
 }
 
 /** Валидация времени «ЧЧ:ММ» (0–23, 0–59). Возвращает минуты с полуночи или null при ошибке. */
@@ -82,14 +79,14 @@ function isWithinPublishWindow(start: string, end: string): boolean {
   const startM = parseTimeHHMM(start);
   const endM = parseTimeHHMM(end);
   if (startM === null && endM === null) return true;
-  const nowM = minutesSinceMidnight(new Date());
+  const nowM = minutesSinceMidnightMsk();
   if (startM !== null && nowM < startM) return false;
   if (endM !== null && nowM > endM) return false;
   return true;
 }
 
 /**
- * Проверка: наступило ли запланированное время публикации.
+ * Проверка: наступило ли запланированное время публикации (всё по Москве).
  * scheduledAt: "ДД.ММ.ГГГГ ЧЧ:ММ" или "ДД.ММ.ГГГГ ЧЧ:ММ:СС", или "ЧЧ:ММ", или "ЧЧ:ММ:СС". Пусто — ограничения нет (true).
  * Поддерживается формат таблицы с секундами (например 12.03.2026 8:00:00).
  */
@@ -101,17 +98,18 @@ function isScheduledTimeReached(scheduledAt: string | null): boolean {
   const fullMatch = raw.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
   if (fullMatch) {
     const [, day, month, year, hour, min, sec] = fullMatch.map((x) => (x != null ? parseInt(x, 10) : 0));
-    target = new Date(year, month - 1, day, hour, min, sec || 0, 0);
+    target = mskWallTimeToDate(year, month, day, hour, min, sec || 0);
   } else {
     const timeMatch = raw.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
     if (timeMatch) {
       const [, hour, min, sec] = timeMatch.map((x) => (x != null ? parseInt(x, 10) : 0));
-      target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, min, sec || 0, 0);
+      const { year, month, day } = getMskParts(now);
+      target = mskWallTimeToDate(year, month, day, hour, min, sec || 0);
     } else {
       return true;
     }
   }
-  return now >= target;
+  return now.getTime() >= target.getTime();
 }
 
 let isRunning = true;

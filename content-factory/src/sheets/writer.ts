@@ -1,6 +1,7 @@
 /**
  * Запись результатов в лист «Задания»: статус, заголовки, превью, источники, ссылки, стоимость.
  */
+import { formatDateYYYYMMDDInMsk } from '../utils/dateMsk';
 import { sheets, spreadsheetId, getSheetId } from './client';
 import type { SheetTask, TaskStatus } from '../types';
 import type { ArticleResult } from '../types';
@@ -208,7 +209,7 @@ export async function writeTextResult(
     { range: `'${SHEET_NAME}'!K${row}`, values: [[costTextUsd]] },
     ...(keepImage ? [] : [{ range: `'${SHEET_NAME}'!L${row}`, values: [[0]] }]),
     { range: `'${SHEET_NAME}'!M${row}`, values: [[costTotalUsd]] },
-    { range: `'${SHEET_NAME}'!N${row}`, values: [[new Date().toISOString().slice(0, 10)]] },
+    { range: `'${SHEET_NAME}'!N${row}`, values: [[formatDateYYYYMMDDInMsk()]] },
     { range: `'${SHEET_NAME}'!E${row}`, values: [[statusAfter]] },
   ];
   await sheets.spreadsheets.values.batchUpdate({
@@ -251,7 +252,7 @@ export async function writeGenerationResult(
     { range: `'${SHEET_NAME}'!K${row}`, values: [[costTextUsd]] },
     { range: `'${SHEET_NAME}'!L${row}`, values: [[costImageUsd]] },
     { range: `'${SHEET_NAME}'!M${row}`, values: [[costTotalUsd]] },
-    { range: `'${SHEET_NAME}'!N${row}`, values: [[new Date().toISOString().slice(0, 10)]] },
+    { range: `'${SHEET_NAME}'!N${row}`, values: [[formatDateYYYYMMDDInMsk()]] },
     { range: `'${SHEET_NAME}'!E${row}`, values: [[newStatus]] },
   ];
   await sheets.spreadsheets.values.batchUpdate({

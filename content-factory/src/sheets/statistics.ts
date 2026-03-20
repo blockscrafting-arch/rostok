@@ -6,6 +6,12 @@
  * строится из БД. Эти функции оставлены для совместимости и не вызываются из пайплайнов.
  * Управление и просмотр — через NocoDB или репозиторий costRecords.
  */
+import {
+  daysInCalendarMonth,
+  formatDateYYYYMMDDInMsk,
+  getMskParts,
+  mskTodayStart,
+} from '../utils/dateMsk';
 import { sheets, spreadsheetId } from './client';
 import type { SheetContext } from './writer';
 
@@ -86,7 +92,7 @@ function dateCellToYYYYMMDD(value: string | number | undefined): string {
   if (!Number.isFinite(n)) return '';
   const days = Math.floor(n);
   const d = new Date((days - 25569) * 86400 * 1000);
-  return d.toISOString().slice(0, 10);
+  return formatDateYYYYMMDDInMsk(d);
 }
 
 /**
@@ -118,7 +124,7 @@ export async function getStatsForPeriod(
  * @param options.spreadsheetId — таблица клиента; при отсутствии — config.
  */
 export async function getTodayStats(options?: { spreadsheetId?: string }): Promise<PeriodStats> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = formatDateYYYYMMDDInMsk();
   return getStatsForPeriod(today, today, options);
 }
 
@@ -126,11 +132,9 @@ export async function getTodayStats(options?: { spreadsheetId?: string }): Promi
  * Статистика за последние 7 дней (включая сегодня).
  */
 export async function getWeekStats(options?: { spreadsheetId?: string }): Promise<PeriodStats> {
-  const now = new Date();
-  const today = now.toISOString().slice(0, 10);
-  const weekAgo = new Date(now);
-  weekAgo.setDate(weekAgo.getDate() - 6);
-  const weekAgoStr = weekAgo.toISOString().slice(0, 10);
+  const today = formatDateYYYYMMDDInMsk();
+  const weekStartInstant = new Date(mskTodayStart().getTime() - 6 * 24 * 60 * 60 * 1000);
+  const weekAgoStr = formatDateYYYYMMDDInMsk(weekStartInstant);
   return getStatsForPeriod(weekAgoStr, today, options);
 }
 
@@ -138,11 +142,9 @@ export async function getWeekStats(options?: { spreadsheetId?: string }): Promis
  * Статистика за текущий календарный месяц.
  */
 export async function getMonthStats(options?: { spreadsheetId?: string }): Promise<PeriodStats> {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
+  const { year, month } = getMskParts(new Date());
   const fromDate = `${year}-${String(month).padStart(2, '0')}-01`;
-  const lastDay = new Date(year, month, 0).getDate();
+  const lastDay = daysInCalendarMonth(year, month);
   const toDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
   return getStatsForPeriod(fromDate, toDate, options);
 }

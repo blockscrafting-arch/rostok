@@ -4,6 +4,7 @@
  */
 import { google } from 'googleapis';
 import { config } from '../config';
+import { formatIsoLikeMsk, formatLogTimestampMsk } from './dateMsk';
 
 const LOG_SHEET_NAME = 'Лог';
 const MAX_STACK_LENGTH = 800;
@@ -45,7 +46,7 @@ function jsonReplacer(_key: string, value: unknown): unknown {
 }
 
 function formatMsg(level: string, message: string, meta?: unknown): string {
-  const ts = new Date().toISOString();
+  const ts = formatLogTimestampMsk();
   const extra = meta !== undefined ? ` ${JSON.stringify(meta, jsonReplacer)}` : '';
   return `[${ts}] ${level} ${message}${extra}`;
 }
@@ -87,7 +88,7 @@ export async function logToSheet(
       range: `'${LOG_SHEET_NAME}'!A:D`,
       valueInputOption: 'RAW',
       requestBody: {
-        values: [[new Date().toISOString(), action, result, errorMessage ?? '']],
+        values: [[formatIsoLikeMsk(), action, result, errorMessage ?? '']],
       },
     });
   } catch (e) {

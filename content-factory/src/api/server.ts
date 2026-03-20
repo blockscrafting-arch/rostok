@@ -7,6 +7,7 @@ import Fastify from 'fastify';
 import bearerAuth from '@fastify/bearer-auth';
 import rateLimit from '@fastify/rate-limit';
 import { config } from '../config';
+import { formatIsoLikeMsk } from '../utils/dateMsk';
 import { onboardingRoute } from './routes/onboarding';
 
 const REQUEST_TIMEOUT_MS = 180_000; // 3 мин (аудио + LLM + Sheets)
@@ -28,7 +29,10 @@ export async function startApiServer(): Promise<void> {
   }
 
   const app = Fastify({
-    logger: true,
+    logger: {
+      level: 'info',
+      timestamp: () => `,"time":"${formatIsoLikeMsk()}"`,
+    },
     bodyLimit: BODY_LIMIT,
     requestTimeout: REQUEST_TIMEOUT_MS,
     ajv: {

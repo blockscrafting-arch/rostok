@@ -33,6 +33,7 @@ services:
     # Весь .env подхватывается; для онбординга копии таблицы задайте все три GOOGLE_DRIVE_COPY_OAUTH_* иначе copy от SA → storageQuotaExceeded
     env_file: .env
     environment:
+      TZ: Europe/Moscow
       DATABASE_URL: postgresql://user:${POSTGRES_PASSWORD:-password}@postgres:5432/content_factory
       REDIS_URL: redis://redis:6379
     volumes:

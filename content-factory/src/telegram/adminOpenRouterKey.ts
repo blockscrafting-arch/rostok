@@ -77,7 +77,7 @@ export function registerAdminOpenRouterKeyHandlers(): void {
       const userId = ctx.from?.id;
       const chatId = ctx.chat?.id;
       if (!canAssignOpenRouterKey(chatId, userId)) {
-        await ctx.answerCbQuery({ text: 'Нет доступа', show_alert: true });
+        await ctx.answerCbQuery('Нет доступа', { show_alert: true });
         return;
       }
       await ctx.answerCbQuery();

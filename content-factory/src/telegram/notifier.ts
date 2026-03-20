@@ -10,6 +10,11 @@ import {
 } from '../db/repositories/costRecords';
 import { appBot } from './appBot';
 import { assignOpenRouterKeyReplyMarkup } from './adminOpenRouterKey';
+import {
+  daysInCalendarMonth,
+  getMskParts,
+  mskWallTimeToDate,
+} from '../utils/dateMsk';
 
 /** Список chat ID для уведомлений (TELEGRAM_NOTIFY_CHAT_ID — один или несколько через запятую). */
 function getNotifyChatIds(): string[] {
@@ -112,26 +117,28 @@ async function sendToChat(chatId: string, message: string): Promise<void> {
 }
 
 function dateRangeDay(): { from: Date; to: Date } {
-  const to = new Date();
-  const from = new Date(to);
-  from.setHours(0, 0, 0, 0);
-  to.setHours(23, 59, 59, 999);
+  const now = new Date();
+  const { year, month, day } = getMskParts(now);
+  const from = mskWallTimeToDate(year, month, day, 0, 0, 0);
+  const to = new Date(mskWallTimeToDate(year, month, day, 23, 59, 59).getTime() + 999);
   return { from, to };
 }
 
 function dateRangeWeek(): { from: Date; to: Date } {
-  const to = new Date();
-  const from = new Date(to);
-  from.setDate(from.getDate() - 6);
-  from.setHours(0, 0, 0, 0);
-  to.setHours(23, 59, 59, 999);
+  const now = new Date();
+  const { year, month, day } = getMskParts(now);
+  const todayStart = mskWallTimeToDate(year, month, day, 0, 0, 0);
+  const from = new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000);
+  const to = new Date(mskWallTimeToDate(year, month, day, 23, 59, 59).getTime() + 999);
   return { from, to };
 }
 
 function dateRangeMonth(): { from: Date; to: Date } {
-  const to = new Date();
-  const from = new Date(to.getFullYear(), to.getMonth(), 1, 0, 0, 0, 0);
-  to.setHours(23, 59, 59, 999);
+  const now = new Date();
+  const { year, month } = getMskParts(now);
+  const from = mskWallTimeToDate(year, month, 1, 0, 0, 0);
+  const last = daysInCalendarMonth(year, month);
+  const to = new Date(mskWallTimeToDate(year, month, last, 23, 59, 59).getTime() + 999);
   return { from, to };
 }
 
