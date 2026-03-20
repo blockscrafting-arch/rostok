@@ -1,0 +1,17 @@
+# HTTPS-терминация для POST /api/onboarding (и всего app:3100).
+# Переменная CADDY_DOMAIN задаётся в .env (DNS A → IP этого сервера).
+# Запуск: docker compose --profile https up -d
+#
+# Таймауты до 3m — Fastify requestTimeout 180s (онбординг с LLM/аудио).
+
+{$CADDY_DOMAIN} {
+	encode gzip
+
+	reverse_proxy app:3100 {
+		transport http {
+			read_timeout 3m
+			write_timeout 3m
+			dial_timeout 30s
+		}
+	}
+}

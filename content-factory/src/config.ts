@@ -94,6 +94,11 @@ export const config = {
     port: envNum('API_PORT', 3100),
     /** Bearer-токен для авторизации веб-онбординга. Обязателен для запуска API. */
     secret: envOptional('ONBOARDING_API_SECRET'),
+    /**
+     * За reverse proxy (Caddy и т.д.): доверять X-Forwarded-For / X-Forwarded-Proto для rate limit и логов.
+     * Включать только если порт API не торчит в интернет без прокси. TRUST_PROXY=1|true|yes
+     */
+    trustProxy: /^(1|true|yes)$/i.test((process.env.TRUST_PROXY ?? '').trim()),
   },
   schedule: {
     pollIntervalMs: envNum('POLL_INTERVAL_MS', 60_000),

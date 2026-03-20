@@ -29,6 +29,7 @@ export async function startApiServer(): Promise<void> {
   }
 
   const app = Fastify({
+    trustProxy: config.api.trustProxy,
     logger: {
       level: 'info',
       timestamp: () => `,"time":"${formatIsoLikeMsk()}"`,

@@ -3,10 +3,15 @@
 # В .env задайте: POSTGRES_PASSWORD, REDIS_URL, NC_AUTH_JWT_SECRET.
 # DATABASE_URL и NC_DB собираются из POSTGRES_* — пароль не расходится (ошибка 28P01).
 #
+# HTTPS для API онбординга (Let's Encrypt): в .env задайте CADDY_DOMAIN (поддомен, DNS A → IP VPS),
+# затем: docker compose --profile https up -d
+# Откройте 80/tcp и 443/tcp на фаерволе. URL для клиентов: https://<CADDY_DOMAIN>/api/onboarding
+# Рекомендация: закрыть прямой доступ к 3100 с интернета — в ports у app заменить на "127.0.0.1:3100:3100".
+#
 # NocoDB (на VPS): после старта откройте http://<IP-или-домен-сервера>:8080
 # (контейнер слушает 0.0.0.0:8080). Создайте первый аккаунт в UI — это админ NocoDB.
 # После входа добавьте источник данных: Add Base → PostgreSQL → хост postgres, порт 5432, user, пароль из .env, БД content_factory — появятся таблицы (clients, cost_records, tasks и др.).
-# Рекомендуется: закрыть 8080 файрволом для всех кроме своего IP или проксировать через nginx с HTTPS.
+# Рекомендуется: закрыть 8080 файрволом для всех кроме своего IP или проксировать с HTTPS.
 
 services:
   postgres:
@@ -57,7 +62,27 @@ services:
     ports:
       - "8080:8080"
 
+  # Опционально: автоматический TLS (Caddy + Let's Encrypt). Профиль https — не мешает обычному up -d.
+  caddy:
+    image: caddy:2-alpine
+    profiles:
+      - https
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      CADDY_DOMAIN: ${CADDY_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
 volumes:
   postgres_data:
   redis_data:
   nocodb_data:
+  caddy_data:
+  caddy_config:
