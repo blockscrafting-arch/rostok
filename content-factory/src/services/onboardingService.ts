@@ -124,7 +124,13 @@ export async function processWebOnboarding(input: WebOnboardingInput): Promise<W
   });
 
   await notifyNewBrief(
-    { clientName, email, niche, spreadsheetUrl: result.spreadsheetUrl },
+    {
+      clientId: result.clientId,
+      clientName,
+      email,
+      niche,
+      spreadsheetUrl: result.spreadsheetUrl,
+    },
     'web'
   );
 

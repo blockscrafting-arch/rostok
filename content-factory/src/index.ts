@@ -10,6 +10,8 @@ import { connection } from './queue';
 import { getApiServer, startApiServer } from './api/server';
 import { config } from './config';
 import { logInfo, logWarn, serializeError } from './utils/logger';
+import { registerAdminOpenRouterKeyHandlers } from './telegram/adminOpenRouterKey';
+import { startAppBotPolling, stopAppBotPolling } from './telegram/appBot';
 
 setRetryNotifier(notify);
 
@@ -61,6 +63,7 @@ function handleShutdown(signal: string): void {
   const closePromises: Promise<unknown>[] = [
     closeWorkers(),
     connection.quit().catch(() => {}),
+    stopAppBotPolling(),
   ];
   const api = getApiServer();
   if (api) {
@@ -78,6 +81,8 @@ process.on('SIGTERM', () => handleShutdown('SIGTERM'));
 
 logInfo('Content-Factory started');
 logGoogleDriveTemplateCopyHint();
+registerAdminOpenRouterKeyHandlers();
+startAppBotPolling();
 startWorkers();
 void startApiServer();
 mainLoop().catch((e) => {

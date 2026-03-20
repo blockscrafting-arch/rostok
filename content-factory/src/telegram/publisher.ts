@@ -1,10 +1,9 @@
 /**
- * Публикация постов в Telegram-канал (Telegraf).
+ * Публикация постов в Telegram-канал (тот же токен, что у appBot).
  */
-import { Telegraf } from 'telegraf';
 import { config } from '../config';
+import { appBot } from './appBot';
 
-const bot = new Telegraf(config.telegram.botToken);
 const MAX_MESSAGE_LENGTH = 4096;
 
 /**
@@ -18,7 +17,7 @@ export async function publishToChannel(
   const channelId = (channelIdOverride ?? config.telegram.channelId).trim();
   const username = channelId.startsWith('@') ? channelId.slice(1) : channelId;
   const toSend = html.slice(0, MAX_MESSAGE_LENGTH);
-  const msg = await bot.telegram.sendMessage(channelId, toSend, { parse_mode: 'HTML' });
+  const msg = await appBot.telegram.sendMessage(channelId, toSend, { parse_mode: 'HTML' });
   const postUrl = `https://t.me/${username}/${msg.message_id}`;
   return { messageId: msg.message_id, postUrl };
 }

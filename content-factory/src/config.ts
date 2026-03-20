@@ -22,6 +22,15 @@ function envNum(key: string, defaultValue: number): number {
   return n;
 }
 
+/** Numeric Telegram user id для админ-действий бота (через запятую). */
+function parseTelegramAdminUserIds(raw: string): number[] {
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .map((s) => parseInt(s, 10))
+    .filter((n) => !Number.isNaN(n) && n > 0);
+}
+
 export const config = {
   google: {
     serviceAccountKey: path.resolve(process.cwd(), env('GOOGLE_SERVICE_ACCOUNT_KEY')),
@@ -71,6 +80,11 @@ export const config = {
     botToken: env('TELEGRAM_BOT_TOKEN'),
     channelId: env('TELEGRAM_CHANNEL_ID'),
     notifyChatId: env('TELEGRAM_NOTIFY_CHAT_ID'),
+    /**
+     * Кто может нажимать «Присвоить OpenRouter ключ» и присылать ключ в чат.
+     * Через запятую: numeric user id (@userinfobot). Пусто = любой в чатах TELEGRAM_NOTIFY_CHAT_ID (риск в группах).
+     */
+    adminUserIds: parseTelegramAdminUserIds(envOptional('TELEGRAM_ADMIN_USER_IDS')),
   },
   redis: {
     url: envOptional('REDIS_URL', 'redis://localhost:6379'),

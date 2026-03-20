@@ -2,15 +2,14 @@
  * Бот уведомлений: ошибки, сводка, публикации — в личный чат заказчика.
  * Админам — полная сводка с расходами ($). Клиентам — только количество статей (без денег).
  */
-import { Telegraf } from 'telegraf';
 import { config } from '../config';
 import { serializeError } from '../utils/logger';
 import {
   getStatsByClientAndPeriod,
   getArticleCountByClientAndPeriod,
 } from '../db/repositories/costRecords';
-
-const bot = new Telegraf(config.telegram.botToken);
+import { appBot } from './appBot';
+import { assignOpenRouterKeyReplyMarkup } from './adminOpenRouterKey';
 
 /** Список chat ID для уведомлений (TELEGRAM_NOTIFY_CHAT_ID — один или несколько через запятую). */
 function getNotifyChatIds(): string[] {
@@ -32,21 +31,57 @@ function escapeHtml(s: string): string {
  * Уведомить админов о новом брифе (веб или Telegram).
  */
 export async function notifyNewBrief(
-  payload: { clientName: string; email: string; niche: string; spreadsheetUrl?: string | null },
+  payload: {
+    clientId: string;
+    clientName: string;
+    email: string;
+    niche: string;
+    spreadsheetUrl?: string | null;
+  },
   source: 'web' | 'telegram'
 ): Promise<void> {
   const prefix = source === 'web' ? 'Новый клиент (веб-онбординг)!' : 'Новый клиент заполнил бриф!';
   const linkLine = payload.spreadsheetUrl
     ? `Ссылка на таблицу: ${escapeHtml(payload.spreadsheetUrl)}`
     : 'Таблица: будет создана администратором.';
+  const idLine = payload.clientId
+    ? `ID клиента (БД): <code>${escapeHtml(payload.clientId)}</code>`
+    : '';
   const text = [
     prefix,
+    idLine,
     `Имя: ${escapeHtml(payload.clientName)}`,
     `Email: ${escapeHtml(payload.email)}`,
     `Ниша: ${escapeHtml(payload.niche)}`,
     linkLine,
-  ].join('\n');
-  await notify(text);
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const chatIds = getNotifyChatIds();
+  let markup;
+  try {
+    markup = assignOpenRouterKeyReplyMarkup(payload.clientId);
+  } catch {
+    markup = undefined;
+  }
+
+  const results = await Promise.allSettled(
+    chatIds.map((chatId) =>
+      appBot.telegram.sendMessage(chatId, text, {
+        parse_mode: 'HTML',
+        ...(markup ? markup : {}),
+      })
+    )
+  );
+  results.forEach((r, i) => {
+    if (r.status === 'rejected') {
+      console.error('Notify new brief failed:', {
+        chatId: chatIds[i],
+        errorMessage: serializeError(r.reason).message,
+      });
+    }
+  });
 }
 
 /**
@@ -57,7 +92,7 @@ export async function notify(message: string): Promise<void> {
   const chatIds = getNotifyChatIds();
   const results = await Promise.allSettled(
     chatIds.map((chatId) =>
-      bot.telegram.sendMessage(chatId, message, { parse_mode: 'HTML' })
+      appBot.telegram.sendMessage(chatId, message, { parse_mode: 'HTML' })
     )
   );
   results.forEach((r, i) => {
@@ -70,7 +105,7 @@ export async function notify(message: string): Promise<void> {
 /** Отправить сообщение в один чат (для персональной сводки клиенту). */
 async function sendToChat(chatId: string, message: string): Promise<void> {
   try {
-    await bot.telegram.sendMessage(chatId, message, { parse_mode: 'HTML' });
+    await appBot.telegram.sendMessage(chatId, message, { parse_mode: 'HTML' });
   } catch (e) {
     console.error('Send to client failed:', { chatId, errorMessage: serializeError(e).message });
   }

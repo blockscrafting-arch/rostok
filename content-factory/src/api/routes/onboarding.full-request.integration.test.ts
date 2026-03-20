@@ -180,6 +180,7 @@ describe('POST /api/onboarding полный запрос (реальный се�
 
     expect(hoisted.notifyNewBrief).toHaveBeenCalledWith(
       {
+        clientId: hoisted.provisionResult.clientId,
         clientName: 'ООО Розовый сад',
         email: 'manager@roses.example.com',
         niche: 'ООО Розовый сад',
