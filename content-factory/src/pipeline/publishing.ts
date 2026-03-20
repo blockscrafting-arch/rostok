@@ -5,7 +5,7 @@ import { publishToChannel } from '../telegram/publisher';
 import { notify } from '../telegram/notifier';
 import { writePublished, setStatusError } from '../sheets/writer';
 import { withRetry } from '../utils/retry';
-import { logInfo } from '../utils/logger';
+import { logInfo, logWarn, serializeError } from '../utils/logger';
 import { markdownToTelegramHtml } from '../utils/markdownToHtml';
 import type { SheetTask, PipelineContext } from '../types';
 
@@ -40,9 +40,13 @@ export async function publishingPipeline(task: SheetTask, context?: PipelineCont
       'Telegram publish'
     );
     await writePublished(task, postUrl, sheetCtx);
-    const headlineSafe = escapeHtml((task.headline ?? '').slice(0, 60));
-    await notify(`Опубликовано: <a href="${escapeHtml(postUrl)}">${headlineSafe}</a>`);
     logInfo('Published', { postUrl, headline: task.headline?.slice(0, 50) });
+    const headlineSafe = escapeHtml((task.headline ?? '').slice(0, 60));
+    try {
+      await notify(`Опубликовано: <a href="${escapeHtml(postUrl)}">${headlineSafe}</a>`);
+    } catch (notifyErr) {
+      logWarn('Published to channel but Telegram notify failed', serializeError(notifyErr));
+    }
   } catch (error) {
     await setStatusError(task, sheetCtx);
     throw error;
