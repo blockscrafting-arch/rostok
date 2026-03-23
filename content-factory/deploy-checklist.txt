@@ -1,0 +1,18 @@
+Чеклист выката content-factory (VPS)
+====================================
+
+1. git pull в каталоге репозитория (ветка main).
+
+2. Если менялась схема Prisma (например колонка telegram_bot_token):
+   docker compose exec app npx prisma db push
+   (или prisma migrate deploy, если перешли на миграции)
+   Убедиться, что DATABASE_URL в .env контейнера app корректен.
+
+3. Пересборка и рестарт приложения:
+   docker compose build app --no-cache   (при необходимости)
+   docker compose up -d app
+
+4. Профиль HTTPS (Caddy): при изменении Caddyfile или compose:
+   docker compose --profile https up -d
+
+5. Быстрая проверка: curl к /api/onboarding с неверным Bearer → 401.

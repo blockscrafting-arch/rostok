@@ -19,10 +19,22 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
+/** Текст уведомления о публикации: без битой ссылки, если postUrl пустой (часть числовых chat_id). */
+export function formatPublishNotifyHtml(postUrl: string, headlineSafe: string): string {
+  const url = postUrl.trim();
+  if (url) {
+    return `Опубликовано: <a href="${escapeHtml(url)}">${headlineSafe}</a>`;
+  }
+  return `Опубликовано: ${headlineSafe} (публичная ссылка на пост недоступна для этого chat_id)`;
+}
+
 export async function publishingPipeline(task: SheetTask, context?: PipelineContext): Promise<void> {
   const sheetCtx = context?.sheetContext;
   const telegramChannelId = context?.telegramChannelId;
   const telegramBotToken = context?.telegramBotToken;
+  const cid = context?.clientId?.trim();
+  /** Легаси / одна таблица: только тогда разрешён канал из TELEGRAM_CHANNEL_ID в .env. */
+  const allowConfigChannelFallback = !cid || cid === 'default';
 
   if (task.status !== 'Одобрено на публикацию') return;
 
@@ -37,14 +49,17 @@ export async function publishingPipeline(task: SheetTask, context?: PipelineCont
 
   try {
     const { postUrl } = await withRetry(
-      () => publishToChannel(toPublish, telegramChannelId, telegramBotToken),
+      () =>
+        publishToChannel(toPublish, telegramChannelId, telegramBotToken, {
+          allowConfigChannelFallback,
+        }),
       'Telegram publish'
     );
     await writePublished(task, postUrl, sheetCtx);
     logInfo('Published', { postUrl, headline: task.headline?.slice(0, 50) });
     const headlineSafe = escapeHtml((task.headline ?? '').slice(0, 60));
     try {
-      await notify(`Опубликовано: <a href="${escapeHtml(postUrl)}">${headlineSafe}</a>`);
+      await notify(formatPublishNotifyHtml(postUrl, headlineSafe));
     } catch (notifyErr) {
       logWarn('Published to channel but Telegram notify failed', serializeError(notifyErr));
     }

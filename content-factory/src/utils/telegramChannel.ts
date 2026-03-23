@@ -17,8 +17,8 @@ export function normalizeTelegramChannelIdForSend(raw: string | undefined | null
   if (!s) return '';
   if (isTelegramNumericChatId(s)) return s;
   if (s.startsWith('@')) return s;
-  // Публичный username канала/бота: буквы, цифры, подчёркивание (без проболов и URL)
-  if (/^[a-zA-Z0-9_]{4,64}$/.test(s)) return `@${s}`;
+  // Публичный username: обычно 5–32 символа (правила Telegram для @username)
+  if (/^[a-zA-Z0-9_]{5,32}$/.test(s)) return `@${s}`;
   return s;
 }
 
@@ -32,10 +32,10 @@ export function buildTelegramPostUrl(chatIdUsedForSend: string, messageId: numbe
   const c = chatIdUsedForSend.trim();
   const m100 = c.match(/^-100(\d+)$/);
   if (m100) return `https://t.me/c/${m100[1]}/${messageId}`;
-  if (c.startsWith('@') && /^@[a-zA-Z0-9_]{4,64}$/.test(c)) {
-    return `https://t.me/${c.slice(1)}/${messageId}`;
-  }
-  if (/^[a-zA-Z0-9_]{4,64}$/.test(c)) {
+  if (c.startsWith('@')) {
+    const u = c.slice(1);
+    if (/^[a-zA-Z0-9_]{5,32}$/.test(u)) return `https://t.me/${u}/${messageId}`;
+  } else if (/^[a-zA-Z0-9_]{5,32}$/.test(c)) {
     return `https://t.me/${c}/${messageId}`;
   }
   return '';

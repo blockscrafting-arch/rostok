@@ -15,8 +15,13 @@ describe('telegramChannel', () => {
     expect(normalizeTelegramChannelIdForSend('@my_channel')).toBe('@my_channel');
   });
 
-  it('normalizeTelegramChannelIdForSend: username без @', () => {
+  it('normalizeTelegramChannelIdForSend: username без @ (от 5 символов)', () => {
     expect(normalizeTelegramChannelIdForSend('my_channel')).toBe('@my_channel');
+    expect(normalizeTelegramChannelIdForSend('abcde')).toBe('@abcde');
+  });
+
+  it('normalizeTelegramChannelIdForSend: короче 5 символов — без автo-@', () => {
+    expect(normalizeTelegramChannelIdForSend('abcd')).toBe('abcd');
   });
 
   it('normalizeTelegramChannelIdForSend: пусто', () => {
@@ -33,8 +38,12 @@ describe('telegramChannel', () => {
     expect(buildTelegramPostUrl('-1001234567890', 99)).toBe('https://t.me/c/1234567890/99');
   });
 
-  it('buildTelegramPostUrl: @username', () => {
-    expect(buildTelegramPostUrl('@news', 5)).toBe('https://t.me/news/5');
+  it('buildTelegramPostUrl: @username от 5 символов', () => {
+    expect(buildTelegramPostUrl('@newsx', 5)).toBe('https://t.me/newsx/5');
+  });
+
+  it('buildTelegramPostUrl: слишком короткий username — пусто', () => {
+    expect(buildTelegramPostUrl('@news', 1)).toBe('');
   });
 
   it('buildTelegramPostUrl: неизвестный числовой формат — пусто', () => {
