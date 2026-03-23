@@ -17,6 +17,8 @@ export interface WebOnboardingInput {
     answer: string | null;
     audio: string | null;
   }>;
+  telegramChannelId?: string;
+  telegramBotToken?: string;
 }
 
 export interface WebOnboardingResult {
@@ -102,6 +104,8 @@ export async function processWebOnboarding(input: WebOnboardingInput): Promise<W
     clientName,
     email,
     niche,
+    telegramChannelId: input.telegramChannelId,
+    telegramBotToken: input.telegramBotToken,
     settings: {
       role: extracted.role.trim() || 'Эксперт',
       contentTypes: extracted.contentTypes,

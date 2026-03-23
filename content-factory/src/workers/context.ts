@@ -10,6 +10,7 @@ export function buildContextFromPayload(payload: QueueContextPayload): PipelineC
     aiClient: createOpenRouterClient(payload.openrouterApiKey),
     sheetContext: { spreadsheetId: payload.spreadsheetId },
     telegramChannelId: payload.telegramChannelId,
+    telegramBotToken: payload.telegramBotToken,
     clientId: payload.clientId,
   };
 }

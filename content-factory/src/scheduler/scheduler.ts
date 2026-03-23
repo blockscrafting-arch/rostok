@@ -124,6 +124,7 @@ const PUBLISH_SKIPPED_LOG_THROTTLE_MS = 5 * 60 * 1000; // 5 минут
 interface QueueContext {
   clientId: string;
   openrouterApiKey: string;
+  telegramBotToken?: string;
 }
 
 async function runPipelinesForClient(
@@ -154,6 +155,7 @@ async function runPipelinesForClient(
     spreadsheetId,
     openrouterApiKey: queueContext.openrouterApiKey,
     telegramChannelId: context?.telegramChannelId,
+    telegramBotToken: queueContext.telegramBotToken,
   };
 
   for (const task of tasks.filter((t) => t.status === 'Новое').reverse()) {
@@ -291,6 +293,7 @@ export async function mainLoop(): Promise<void> {
             const queueContext: QueueContext = {
               clientId: refreshed.id,
               openrouterApiKey: refreshed.openrouterApiKey,
+              telegramBotToken: refreshed.telegramBotToken ?? undefined,
             };
             const tasks = await readTasks({ spreadsheetId: client.spreadsheetId });
             const state = await getPublishState(client.id);

@@ -119,6 +119,8 @@ export interface PipelineContext {
   sheetContext?: { spreadsheetId?: string };
   /** Telegram-канал для публикации (например @channel или -100...). */
   telegramChannelId?: string;
+  /** Индивидуальный токен бота клиента (при наличии). */
+  telegramBotToken?: string;
   /** ID клиента (для S3: папка clients/{clientId}/images). Пустая строка — режим одной таблицы. */
   clientId?: string;
 }

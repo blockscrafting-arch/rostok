@@ -35,6 +35,7 @@ model Client {
   openrouterApiKey   String    @map("openrouter_api_key")
   spreadsheetId      String?   @map("spreadsheet_id")
   telegramChannelId  String?   @map("telegram_channel_id")
+  telegramBotToken   String?   @map("telegram_bot_token")
   notifyChatId       String?   @map("notify_chat_id")
   isActive           Boolean   @default(false)
   onboardingDone     Boolean   @default(false) @map("onboarding_done")

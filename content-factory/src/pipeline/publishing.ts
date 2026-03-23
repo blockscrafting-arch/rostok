@@ -22,6 +22,7 @@ function escapeHtml(s: string): string {
 export async function publishingPipeline(task: SheetTask, context?: PipelineContext): Promise<void> {
   const sheetCtx = context?.sheetContext;
   const telegramChannelId = context?.telegramChannelId;
+  const telegramBotToken = context?.telegramBotToken;
 
   if (task.status !== 'Одобрено на публикацию') return;
 
@@ -36,7 +37,7 @@ export async function publishingPipeline(task: SheetTask, context?: PipelineCont
 
   try {
     const { postUrl } = await withRetry(
-      () => publishToChannel(toPublish, telegramChannelId),
+      () => publishToChannel(toPublish, telegramChannelId, telegramBotToken),
       'Telegram publish'
     );
     await writePublished(task, postUrl, sheetCtx);

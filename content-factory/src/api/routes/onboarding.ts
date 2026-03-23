@@ -34,6 +34,8 @@ const bodySchema = {
         additionalProperties: false,
       },
     },
+    telegramChannelId: { type: 'string', minLength: 1, maxLength: 255 },
+    telegramBotToken: { type: 'string', minLength: 1, maxLength: 255 },
   },
   additionalProperties: false,
 };
@@ -51,6 +53,8 @@ export async function onboardingRoute(
         answer: string | null;
         audio: string | null;
       }>;
+      telegramChannelId?: string;
+      telegramBotToken?: string;
     };
   }>(
     '/api/onboarding',

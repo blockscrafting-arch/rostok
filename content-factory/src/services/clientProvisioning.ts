@@ -16,6 +16,10 @@ export interface ProvisionClientInput {
   settings: OnboardingSettingsForDb;
   /** Опционально: telegramChatId для бота. */
   telegramChatId?: string | null;
+  /** Опционально: канал для публикации (от пользователя веб-онбординга). */
+  telegramChannelId?: string;
+  /** Опционально: индивидуальный токен бота клиента. */
+  telegramBotToken?: string;
 }
 
 export interface ProvisionClientResult {
@@ -28,7 +32,7 @@ export interface ProvisionClientResult {
  * Создать клиента, настройки и (при наличии шаблона) Google Таблицу.
  */
 export async function provisionClient(input: ProvisionClientInput): Promise<ProvisionClientResult> {
-  const { clientName, email, niche, settings, telegramChatId } = input;
+  const { clientName, email, niche, settings, telegramChatId, telegramChannelId, telegramBotToken } = input;
 
   const client = await prisma.$transaction(async (tx) => {
     const c = await tx.client.create({
@@ -36,6 +40,8 @@ export async function provisionClient(input: ProvisionClientInput): Promise<Prov
         name: clientName,
         niche,
         telegramChatId: telegramChatId ?? null,
+        telegramChannelId: telegramChannelId ?? null,
+        telegramBotToken: telegramBotToken ?? null,
         openrouterApiKey: 'PENDING',
         isActive: false,
         onboardingDone: false,
