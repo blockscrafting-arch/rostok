@@ -86,7 +86,8 @@ export function buildClientSettingsUpdateFromSheet(
 }
 
 /**
- * Прочитать лист клиента и обновить client_settings (+ опционально telegramChannelId клиента).
+ * Прочитать лист клиента и обновить client_settings.
+ * `Client.telegramChannelId` и токен бота из листа не обновляем — источник правды: онбординг / БД (NocoDB, SQL).
  * Не для legacy clientId === 'default'.
  */
 export async function syncClientSettingsFromSheet(clientId: string): Promise<boolean> {
@@ -105,14 +106,6 @@ export async function syncClientSettingsFromSheet(clientId: string): Promise<boo
       where: { clientId },
       data,
     });
-
-    const tg = kvGet(byKey, 'Telegram Channel ID', 'Channel ID');
-    if (tg) {
-      await prisma.client.update({
-        where: { id: clientId },
-        data: { telegramChannelId: tg },
-      });
-    }
 
     invalidateClientSettingsCache(clientId);
     logInfo('Sheet «Настройки» synced to DB', { clientId, spreadsheetId: sid });

@@ -35,7 +35,8 @@ const bodySchema = {
       },
     },
     telegramChannelId: { type: 'string', minLength: 1, maxLength: 255 },
-    telegramBotToken: { type: 'string', minLength: 1, maxLength: 255 },
+    // Токен BotFather; maxLength с запасом (типичная длина ~46)
+    telegramBotToken: { type: 'string', minLength: 1, maxLength: 512 },
   },
   additionalProperties: false,
 };

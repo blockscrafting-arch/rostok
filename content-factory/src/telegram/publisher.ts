@@ -4,6 +4,7 @@
 import { Telegraf } from 'telegraf';
 import { config } from '../config';
 import { appBot } from './appBot';
+import { buildTelegramPostUrl, normalizeTelegramChannelIdForSend } from '../utils/telegramChannel';
 
 const MAX_MESSAGE_LENGTH = 4096;
 
@@ -18,13 +19,14 @@ export async function publishToChannel(
   channelIdOverride?: string,
   botTokenOverride?: string
 ): Promise<{ messageId: number; postUrl: string }> {
-  const channelId = (channelIdOverride ?? config.telegram.channelId).trim();
-  const username = channelId.startsWith('@') ? channelId.slice(1) : channelId;
+  let raw = (channelIdOverride ?? config.telegram.channelId).trim();
+  if (!raw) raw = config.telegram.channelId.trim();
+  const channelId = normalizeTelegramChannelIdForSend(raw) || raw;
   const toSend = html.slice(0, MAX_MESSAGE_LENGTH);
-  
+
   const bot = botTokenOverride ? new Telegraf(botTokenOverride) : appBot;
-  
+
   const msg = await bot.telegram.sendMessage(channelId, toSend, { parse_mode: 'HTML' });
-  const postUrl = `https://t.me/${username}/${msg.message_id}`;
+  const postUrl = buildTelegramPostUrl(channelId, msg.message_id);
   return { messageId: msg.message_id, postUrl };
 }

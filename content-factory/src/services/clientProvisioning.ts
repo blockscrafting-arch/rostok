@@ -7,6 +7,7 @@ import { createClientTable } from '../sheets/templateCopier';
 import { syncOnboardingSettingsToSettingsSheet } from '../sheets/settingsWriter';
 import { config } from '../config';
 import { logInfo } from '../utils/logger';
+import { normalizeTelegramChannelIdForSend } from '../utils/telegramChannel';
 import type { OnboardingSettingsForDb } from '../types/onboarding';
 
 export interface ProvisionClientInput {
@@ -34,14 +35,23 @@ export interface ProvisionClientResult {
 export async function provisionClient(input: ProvisionClientInput): Promise<ProvisionClientResult> {
   const { clientName, email, niche, settings, telegramChatId, telegramChannelId, telegramBotToken } = input;
 
+  const tgChannel =
+    telegramChannelId != null && String(telegramChannelId).trim() !== ''
+      ? normalizeTelegramChannelIdForSend(String(telegramChannelId))
+      : null;
+  const tgToken =
+    telegramBotToken != null && String(telegramBotToken).trim() !== ''
+      ? String(telegramBotToken).trim()
+      : null;
+
   const client = await prisma.$transaction(async (tx) => {
     const c = await tx.client.create({
       data: {
         name: clientName,
         niche,
         telegramChatId: telegramChatId ?? null,
-        telegramChannelId: telegramChannelId ?? null,
-        telegramBotToken: telegramBotToken ?? null,
+        telegramChannelId: tgChannel,
+        telegramBotToken: tgToken,
         openrouterApiKey: 'PENDING',
         isActive: false,
         onboardingDone: false,
