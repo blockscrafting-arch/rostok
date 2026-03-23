@@ -28,13 +28,19 @@ export function formatPublishNotifyHtml(postUrl: string, headlineSafe: string): 
   return `Опубликовано: ${headlineSafe} (публичная ссылка на пост недоступна для этого chat_id)`;
 }
 
+/**
+ * Разрешить канал из TELEGRAM_CHANNEL_ID (.env) только для очереди легаси (`clientId === 'default'`).
+ * Пустой/битый clientId не считается легаси — без fallback (защита от публикации не в тот канал).
+ */
+export function allowLegacyTelegramChannelFromEnv(clientId?: string): boolean {
+  return clientId?.trim() === 'default';
+}
+
 export async function publishingPipeline(task: SheetTask, context?: PipelineContext): Promise<void> {
   const sheetCtx = context?.sheetContext;
   const telegramChannelId = context?.telegramChannelId;
   const telegramBotToken = context?.telegramBotToken;
-  const cid = context?.clientId?.trim();
-  /** Легаси / одна таблица: только тогда разрешён канал из TELEGRAM_CHANNEL_ID в .env. */
-  const allowConfigChannelFallback = !cid || cid === 'default';
+  const allowConfigChannelFallback = allowLegacyTelegramChannelFromEnv(context?.clientId);
 
   if (task.status !== 'Одобрено на публикацию') return;
 

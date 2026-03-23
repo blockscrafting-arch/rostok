@@ -11,7 +11,7 @@ const MAX_MESSAGE_LENGTH = 4096;
 export type PublishToChannelOptions = {
   /**
    * Если false и channelIdOverride пустой — ошибка, без fallback в TELEGRAM_CHANNEL_ID.
-   * Для мульти-клиента (clientId !== 'default') всегда false — контент заказчика нельзя слать в легаси-канал.
+   * Только при `clientId === 'default'` в пайплайне передаётся true — иначе (в т.ч. пустой clientId) fallback запрещён.
    */
   allowConfigChannelFallback?: boolean;
 };
