@@ -7,7 +7,6 @@ import {
   updateStatus,
   writeHeadlines,
   writeKeywords,
-  writeHeadlinesCost,
   insertTaskRows,
   setStatusError,
 } from '../sheets/writer';
@@ -59,15 +58,13 @@ export async function semanticsPipeline(
     });
 
     const headlinesCostUsd = totalCostUsd([usage]);
-    const costPerRow = filteredItems.length > 0 ? headlinesCostUsd / filteredItems.length : 0;
 
     const first = filteredItems[0];
     await writeKeywords(task, first?.keywords ?? [], sheetCtx);
     await writeHeadlines(task, first?.headline ? [first.headline] : [], sheetCtx);
-    await writeHeadlinesCost(task, costPerRow, sheetCtx);
     await updateStatus(task, 'На согласовании', sheetCtx);
     if (filteredItems.length > 1) {
-      await insertTaskRows(task, filteredItems.slice(1), costPerRow, sheetCtx);
+      await insertTaskRows(task, filteredItems.slice(1), sheetCtx);
     }
     logInfo('Semantics done', { keyword: task.keyword, headlinesCount: filteredItems.length, headlinesCostUsd });
   } catch (error) {

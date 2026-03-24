@@ -19,7 +19,7 @@ export function parseFrequencyLimit(v: unknown): FrequencyLimit {
   return Number.isNaN(n) || n < 0 ? 300 : n;
 }
 
-/** Индексы колонок (0-based). A=Ключевое слово, ... O=Комментарий, P=Символов, Q=Запланировано. */
+/** Индексы колонок (0-based). A=Ключевое слово, ... J=Пост, K=Дата, L=Комментарий, M=Символов (скрытый), N=Запланировано (скрытый). */
 const COL = {
   keyword: 0,
   frequencyLimit: 1,
@@ -31,12 +31,9 @@ const COL = {
   imageUrl: 7,
   utmUrl: 8,
   postUrl: 9,
-  costText: 10,
-  costImage: 11,
-  costTotal: 12,
-  date: 13,
-  comment: 14,
-  scheduledAt: 16,
+  date: 10,
+  comment: 11,
+  scheduledAt: 13,
 } as const;
 
 const VALID_STATUSES: TaskStatus[] = [
@@ -80,9 +77,6 @@ export function parseRow(row: unknown[], sheetRowIndex: number): SheetTask | nul
     imageUrl: String(row[COL.imageUrl] ?? '').trim() || null,
     utmUrl: String(row[COL.utmUrl] ?? '').trim() || null,
     postUrl: String(row[COL.postUrl] ?? '').trim() || null,
-    costText: row[COL.costText] != null ? String(row[COL.costText]).trim() : null,
-    costImage: row[COL.costImage] != null ? String(row[COL.costImage]).trim() : null,
-    costTotal: row[COL.costTotal] != null ? String(row[COL.costTotal]).trim() : null,
     date: row[COL.date] != null ? String(row[COL.date]).trim() : null,
     comment: String(row[COL.comment] ?? '').trim() || null,
     scheduledAt: row[COL.scheduledAt] != null ? String(row[COL.scheduledAt]).trim() || null : null,
@@ -98,7 +92,7 @@ export async function readTasks(overrides?: { spreadsheetId?: string }): Promise
   const sid = overrides?.spreadsheetId ?? spreadsheetId;
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: sid,
-    range: `'${SHEET_NAME}'!A2:Q`,
+    range: `'${SHEET_NAME}'!A2:N`,
   });
   const rows = (res.data.values ?? []) as unknown[][];
   const tasks: SheetTask[] = [];

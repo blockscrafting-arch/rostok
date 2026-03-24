@@ -16,9 +16,10 @@ import { sheets } from './client';
 import { logInfo, logWarn } from '../utils/logger';
 
 const TASKS_SHEET_NAME = 'Задания';
-/** Колонки P (16) и Q (17) в 0-based — технические, скрываем по умолчанию. */
-const TECHNICAL_COLUMN_START = 15; // P
-const TECHNICAL_COLUMN_END = 17;   // Q (endIndex невключительно)
+
+/** Диапазон колонок для скрытия (0-based, endIndex невключительно). M=Символов, N=Запланировано. */
+const HIDDEN_COLUMN_START = 12; // M
+const HIDDEN_COLUMN_END = 14;   // N+1
 
 /** Прочитать client_email из ключа сервисного аккаунта (JSON). */
 export function getServiceAccountEmail(): string {
@@ -164,8 +165,8 @@ export async function hideTechnicalColumns(spreadsheetId: string): Promise<void>
             range: {
               sheetId,
               dimension: 'COLUMNS',
-              startIndex: TECHNICAL_COLUMN_START,
-              endIndex: TECHNICAL_COLUMN_END,
+              startIndex: HIDDEN_COLUMN_START,
+              endIndex: HIDDEN_COLUMN_END,
             },
             properties: { hiddenByUser: true },
             fields: 'hiddenByUser',

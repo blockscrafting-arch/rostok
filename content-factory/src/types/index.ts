@@ -33,9 +33,6 @@ export interface Task {
   imageUrl: string | null;
   utmUrl: string | null;
   postUrl: string | null;
-  costText: string | null;
-  costImage: string | null;
-  costTotal: string | null;
   date: string | null;
   comment: string | null;
   /** Запланированная дата/время публикации: ДД.ММ.ГГГГ ЧЧ:ММ или ЧЧ:ММ. Пусто — без ограничения по времени строки. */

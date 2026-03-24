@@ -105,7 +105,6 @@ export async function generationPipeline(
         previewText,
         sources: citations.join(', '),
         utmUrl,
-        costTextUsd,
       },
       { statusAfter: 'Готово к проверке' },
       sheetCtx

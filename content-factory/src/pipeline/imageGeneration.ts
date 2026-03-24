@@ -136,7 +136,7 @@ export async function imageGenerationPipeline(
     }
 
     const nextStatus = settings.moderationEnabled ? 'Готово к проверке' : 'Одобрено на публикацию';
-    await writeRegeneratedImage(task, imageUrl, costImageUsd, nextStatus, sheetCtx);
+    await writeRegeneratedImage(task, imageUrl, nextStatus, sheetCtx);
     await createCostRecord({
       clientId: context?.clientId || 'default',
       operation: 'image',

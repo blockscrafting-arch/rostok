@@ -132,7 +132,7 @@ export async function regenerateImagePipeline(
       throw new Error('Модель не вернула изображение или загрузка в S3 не удалась');
     }
 
-    await writeRegeneratedImage(task, imageUrl, costImageUsd, 'Готово к проверке', sheetCtx);
+    await writeRegeneratedImage(task, imageUrl, 'Готово к проверке', sheetCtx);
     await createCostRecord({
       clientId: context?.clientId || 'default',
       operation: 'image',
