@@ -11,12 +11,32 @@ import { logInfo, logWarn, serializeError } from '../utils/logger';
 
 const SHEET_NAME = 'Настройки';
 
-/** Найти номер строки по ключу; для ДНК учитываем оба варианта подписи из шаблона (readSettings). */
+/** Синонимы ключей шаблона: settingsWriter пишет «CTA», шаблон содержит «Призыв к действию (CTA)» и т.д. */
+const KEY_SYNONYMS: Record<string, string[]> = {
+  'ДНК Бренда': ['ДНК бренда'],
+  'Призыв к действию (CTA)': ['CTA', 'Призыв к действию'],
+  'Стиль картинок': ['Стиль картинки'],
+  'Ссылка на логотип для картинок': ['URL логотипа'],
+  'Максимум статей в день': ['Макс. статей в день'],
+  'Интервал публикаций (минуты)': ['Интервал публикации (мин)'],
+  'Время генерации картинок': ['Время генерации'],
+  'UTM-шаблон': ['Шаблон UTM'],
+  'Время ежедневной сводки': ['Время сводки'],
+  'Кол-во заголовков': ['Макс. заголовков'],
+  'Telegram-канал (id)': ['Telegram Channel ID', 'Channel ID'],
+};
+
 function rowForSettingsKey(key: string, keyToRow: Map<string, number>): number | undefined {
   const direct = keyToRow.get(key);
   if (direct != null) return direct;
-  if (key === 'ДНК Бренда') {
-    return keyToRow.get('ДНК бренда');
+  for (const [canonical, aliases] of Object.entries(KEY_SYNONYMS)) {
+    const allNames = [canonical, ...aliases];
+    if (allNames.includes(key)) {
+      for (const name of allNames) {
+        const row = keyToRow.get(name);
+        if (row != null) return row;
+      }
+    }
   }
   return undefined;
 }
@@ -28,16 +48,16 @@ export function buildOnboardingSettingsSheetPairs(settings: OnboardingSettingsFo
 
   const pairs: Array<[string, string]> = [
     ['Роль', settings.role?.trim() ?? ''],
-    ['Макс. статей в день', String(Math.max(1, settings.maxArticlesPerDay ?? 5))],
+    ['Максимум статей в день', String(Math.max(1, settings.maxArticlesPerDay ?? 5))],
     ['Режим модерации', settings.moderationEnabled ? 'да' : 'нет'],
-    ['Время генерации', (settings.generationTime ?? '05:00').trim() || '05:00'],
+    ['Время генерации картинок', (settings.generationTime ?? '05:00').trim() || '05:00'],
     ['Режим генерации картинки', imageModeLabel],
-    ['Интервал публикации (мин)', String(Math.max(1, settings.publishIntervalMin ?? 60))],
-    ['URL логотипа', settings.logoUrl?.trim() ?? ''],
+    ['Интервал публикаций (минуты)', String(Math.max(1, settings.publishIntervalMin ?? 60))],
+    ['Ссылка на логотип для картинок', settings.logoUrl?.trim() ?? ''],
     ['ДНК Бренда', settings.dnaBrand?.trim() ?? ''],
     ['Детали продукта', settings.productDetails?.trim() ?? ''],
-    ['CTA', settings.cta?.trim() ?? ''],
-    ['Стиль картинки', settings.imageStyle?.trim() ?? ''],
+    ['Призыв к действию (CTA)', settings.cta?.trim() ?? ''],
+    ['Стиль картинок', settings.imageStyle?.trim() ?? ''],
     ['Тональность', settings.tonality?.trim() ?? ''],
     ['Аудитория', settings.targetAudience?.trim() ?? ''],
     ['Негативный промпт', settings.negativePrompt?.trim() ?? ''],

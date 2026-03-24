@@ -160,15 +160,24 @@ export function rowsToSettingsKeyMap(rows: string[][] | null | undefined): Recor
 const SETTINGS_SHEET_RANGE = `'${SHEET_NAME}'!A1:B300`;
 
 async function buildSettingsFromKeyMap(sid: string, byKey: Record<string, string>): Promise<Settings> {
-  const get = (key: string, def: string) => byKey[key] ?? def;
-  const dnaRaw = get('ДНК Бренда', get('ДНК бренда', ''));
-  const dnaBrandUrl = looksLikeGoogleDocsUrl(dnaRaw) ? dnaRaw.trim() : '';
+  /** Первый непустой по списку ключей-синонимов (шаблон, потом легаси). */
+  const getAny = (...keys: string[]): string => {
+    for (const k of keys) {
+      const v = byKey[k];
+      if (v !== undefined && v.trim() !== '') return v.trim();
+    }
+    return '';
+  };
+  const get = (key: string, def: string) => byKey[key]?.trim() ?? def;
 
-  const catalogRawCell = get('Справочник каталога', get('Справочник каталога', ''));
-  const catalogDocUrl = looksLikeGoogleDocsUrl(catalogRawCell) ? catalogRawCell.trim() : '';
+  const dnaRaw = getAny('ДНК Бренда', 'ДНК бренда', 'Сайт (Ссылка на Документ)');
+  const dnaBrandUrl = looksLikeGoogleDocsUrl(dnaRaw) ? dnaRaw : '';
+
+  const catalogRawCell = get('Справочник каталога', '');
+  const catalogDocUrl = looksLikeGoogleDocsUrl(catalogRawCell) ? catalogRawCell : '';
 
   const refPhotoCell = get('Справочник фото', '');
-  const referencePhotoDocUrl = looksLikeGoogleDocsUrl(refPhotoCell) ? refPhotoCell.trim() : '';
+  const referencePhotoDocUrl = looksLikeGoogleDocsUrl(refPhotoCell) ? refPhotoCell : '';
 
   const [dnaBrandTextFetched, catalogRaw, referencePhotoRaw] = await Promise.all([
     dnaBrandUrl ? fetchDocContent(dnaBrandUrl) : Promise.resolve(''),
@@ -187,8 +196,28 @@ async function buildSettingsFromKeyMap(sid: string, byKey: Record<string, string
   const catalogMap = parseCatalogMap(catalogRaw);
   const referencePhotoMap = parseCatalogMap(referencePhotoRaw);
 
-  const maxArticlesPerDay = Math.max(1, parseInt(get('Макс. статей в день', '10'), 10) || 10);
+  const maxRaw = getAny('Максимум статей в день', 'Макс. статей в день') || '10';
+  const maxArticlesPerDay = Math.max(1, parseInt(maxRaw, 10) || 10);
   const moderationEnabled = /^(1|да|yes|вкл|on|true)$/i.test(get('Режим модерации', 'вкл'));
+
+  const utmTemplate = getAny('UTM-шаблон', 'Шаблон UTM') ||
+    '?utm_source=dzen&utm_medium=article&utm_campaign={campaign}';
+
+  const telegramChannelId = getAny('Telegram-канал (id)', 'Telegram Channel ID', 'Channel ID') ||
+    config.telegram.channelId;
+
+  const dailySummaryTime = getAny('Время ежедневной сводки', 'Время сводки') || '21:00';
+
+  const genTimeRaw = getAny('Время генерации картинок', 'Время генерации') || '05:00';
+
+  const logoRaw = getAny('Ссылка на логотип для картинок', 'URL логотипа');
+  const logoUrl = logoRaw && /^https?:\/\//i.test(logoRaw) ? logoRaw : undefined;
+
+  const intervalRaw = getAny('Интервал публикаций (минуты)', 'Интервал публикации (мин)') || '60';
+  const publishIntervalMin = Math.max(1, parseInt(intervalRaw, 10) || 60);
+
+  const headlinesRaw = getAny('Кол-во заголовков', 'Макс. заголовков') || '30';
+  const headlinesCount = Math.max(1, parseInt(headlinesRaw, 10) || 30);
 
   return {
     role: get('Роль', 'Ведущий агроном питомника с 20-летним стажем'),
@@ -202,25 +231,22 @@ async function buildSettingsFromKeyMap(sid: string, byKey: Record<string, string
     dnaBrandText,
     catalogMap,
     referencePhotoMap,
-    utmTemplate: get('Шаблон UTM', '?utm_source=dzen&utm_medium=article&utm_campaign={campaign}'),
-    telegramChannelId: get('Telegram Channel ID', get('Channel ID', config.telegram.channelId)),
+    utmTemplate,
+    telegramChannelId,
     maxArticlesPerDay,
     moderationEnabled,
     pollInterval: config.schedule.pollIntervalMs,
-    dailySummaryTime: get('Время сводки', '21:00'),
-    generationTime: (get('Время генерации', '05:00') || '05:00').trim() || '05:00',
+    dailySummaryTime,
+    generationTime: genTimeRaw,
     imageGenerationMode: parseImageGenerationMode(get('Режим генерации картинки', 'По времени')),
-    logoUrl: (() => {
-      const url = get('URL логотипа', '').trim();
-      return url && /^https?:\/\//i.test(url) ? url : undefined;
-    })(),
-    publishIntervalMin: Math.max(1, parseInt(get('Интервал публикации (мин)', '60'), 10) || 60),
+    logoUrl,
+    publishIntervalMin,
     publishWindowStart: (get('Публикация с', '') || '').trim(),
     publishWindowEnd: (get('Публикация до', '') || '').trim(),
     groundingModel: get('Модель граундинга', '') || undefined,
     textModel: get('Модель текста', '') || undefined,
     imageModel: get('Модель картинки', '') || undefined,
-    headlinesCount: Math.max(1, parseInt(get('Макс. заголовков', '30'), 10) || 30),
+    headlinesCount,
   };
 }
 

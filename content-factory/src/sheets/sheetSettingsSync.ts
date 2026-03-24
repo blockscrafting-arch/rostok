@@ -31,7 +31,7 @@ export function buildClientSettingsUpdateFromSheet(
   ClientSettings,
   'id' | 'clientId' | 'updatedAt' | 'frequencyLimit'
 > & { frequencyLimit?: string | null } {
-  const dnaRaw = kvGet(byKey, 'ДНК Бренда', 'ДНК бренда');
+  const dnaRaw = kvGet(byKey, 'ДНК Бренда', 'ДНК бренда', 'Сайт (Ссылка на Документ)');
   const dnaBrand = (
     settings.dnaBrandText?.trim() ||
     dnaRaw ||
@@ -61,8 +61,8 @@ export function buildClientSettingsUpdateFromSheet(
     trustedSites,
     productDetails,
     dnaBrand: dnaBrand || prev.dnaBrand,
-    cta: kvGet(byKey, 'CTA') || prev.cta,
-    imageStyle: kvGet(byKey, 'Стиль картинки') || prev.imageStyle,
+    cta: kvGet(byKey, 'Призыв к действию (CTA)', 'CTA') || prev.cta,
+    imageStyle: kvGet(byKey, 'Стиль картинок', 'Стиль картинки') || prev.imageStyle,
     tonality: kvGet(byKey, 'Тональность') || prev.tonality,
     targetAudience: kvGet(byKey, 'Аудитория') || prev.targetAudience,
     negativePrompt: kvGet(byKey, 'Негативный промпт') || prev.negativePrompt,
