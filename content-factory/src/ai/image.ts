@@ -7,6 +7,7 @@ import type OpenAI from 'openai';
 import { config } from '../config';
 import { logInfo, logWarn } from '../utils/logger';
 import { convertDriveUrlToDirectDownload } from '../utils/url';
+import { buildPromptDynamic } from '../prompts/builder';
 import { isFetchUrlAllowed } from '../utils/urlAllowlist';
 import type { TokenUsage } from '../types';
 import type { ChatCompletionContentPart } from 'openai/resources/chat/completions';
@@ -45,9 +46,7 @@ async function fetchImageAsDataUrl(url: string): Promise<string> {
 }
 
 function applyPlaceholders(template: string, headline: string, text: string = ''): string {
-  return template
-    .replace(/\{headline\}/gi, headline)
-    .replace(/\{text\}/gi, text);
+  return buildPromptDynamic(template, { headline, text });
 }
 
 /**

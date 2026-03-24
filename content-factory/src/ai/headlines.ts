@@ -5,6 +5,7 @@
 import type OpenAI from 'openai';
 import { config } from '../config';
 import { logInfo } from '../utils/logger';
+import { buildPromptDynamic } from '../prompts/builder';
 import type { TokenUsage } from '../types';
 
 export interface HeadlineItem {
@@ -158,13 +159,8 @@ export async function generateHeadlines(
   const kwList = keywordList.length ? keywordList.join(', ') : keyword;
   const countStr = String(count);
   const userPrompt = prompt1
-    ? prompt1
-        .replace(/\{keyword\}/g, keyword)
-        .replace(/\{keywords\}/g, kwList)
-        .replace(/\{count\}/g, countStr)
-    : DEFAULT_PROMPT.replace(/\{keyword\}/g, keyword)
-        .replace(/\{keywords\}/g, kwList)
-        .replace(/\{count\}/g, countStr);
+    ? buildPromptDynamic(prompt1, { keyword, keywords: kwList, count: countStr })
+    : buildPromptDynamic(DEFAULT_PROMPT, { keyword, keywords: kwList, count: countStr });
 
   const res = await aiClient.chat.completions.create({
     model,
