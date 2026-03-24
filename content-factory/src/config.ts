@@ -57,6 +57,8 @@ export const config = {
     driveCopyOAuthRefreshToken: envOptional('GOOGLE_DRIVE_COPY_OAUTH_REFRESH_TOKEN'),
     /** Email админа — всегда выдаётся доступ writer к новым таблицам клиентов. */
     adminEmail: envOptional('ADMIN_GOOGLE_EMAIL'),
+    /** Админ-таблица: сводка по всем клиентам, вкл/выкл, статистика. */
+    adminSpreadsheetId: envOptional('ADMIN_SPREADSHEET_ID'),
   },
   openrouter: {
     apiKey: env('OPENROUTER_API_KEY'),

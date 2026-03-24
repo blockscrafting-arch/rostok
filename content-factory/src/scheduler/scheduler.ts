@@ -20,6 +20,7 @@ import {
   publishQueue,
 } from '../queue';
 import { config } from '../config';
+import { syncAdminPanel } from '../sheets/adminPanel';
 import { getPublishState, setPublishState, type PublishState } from '../redis/publishState';
 import type { Settings } from '../types';
 import type { QueueContextPayload } from '../queue/types';
@@ -376,6 +377,10 @@ export async function mainLoop(): Promise<void> {
         );
         await setPublishState('default', nextState);
       }
+
+      await syncAdminPanel().catch((e) => {
+        logInfo('Admin panel sync error', { errorMessage: serializeError(e).message });
+      });
 
       if (dailySummarySentDate !== today && isAfterSummaryTime(summaryTime)) {
         try {
