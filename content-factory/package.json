@@ -14,6 +14,8 @@
     "clear-client-stats": "ts-node scripts/clear-client-stats.ts",
     "seed:dev": "ts-node prisma/seed.ts",
     "db:seed": "npm run build && prisma db seed",
+    "backfill-niche": "npx esbuild scripts/backfill-niche.ts --bundle --platform=node --target=node20 --outfile=dist/backfill-niche.js --external:./node_modules/* && node dist/backfill-niche.js",
+    "backfill-niche:dry": "npx esbuild scripts/backfill-niche.ts --bundle --platform=node --target=node20 --outfile=dist/backfill-niche.js --external:./node_modules/* && node dist/backfill-niche.js --dry-run",
     "test": "vitest",
     "test:run": "vitest run"
   },
