@@ -85,6 +85,10 @@ export const config = {
      * Через запятую: numeric user id (@userinfobot). Пусто = любой в чатах TELEGRAM_NOTIFY_CHAT_ID (риск в группах).
      */
     adminUserIds: parseTelegramAdminUserIds(envOptional('TELEGRAM_ADMIN_USER_IDS')),
+    /** Отдельный бот для уведомлений об онбординге. Если пусто — используется основной TELEGRAM_BOT_TOKEN. */
+    onboardingBotToken: envOptional('ONBOARDING_BOT_TOKEN'),
+    /** Chat ID для уведомлений онбординга. Если пусто — используется TELEGRAM_NOTIFY_CHAT_ID. */
+    onboardingNotifyChatId: envOptional('ONBOARDING_NOTIFY_CHAT_ID'),
   },
   redis: {
     url: envOptional('REDIS_URL', 'redis://localhost:6379'),
