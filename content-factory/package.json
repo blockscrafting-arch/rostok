@@ -4,7 +4,7 @@
   "description": "Контент-Завод: генерация статей из ключевых слов, публикация в Telegram/Дзен",
   "main": "dist/index.js",
   "scripts": {
-    "build": "node -e \"require('fs').mkdirSync('dist',{recursive:true})\" && npx esbuild src/index.ts --bundle --platform=node --target=node20 --outfile=dist/index.js --external:./node_modules/* && npx esbuild prisma/seed.ts --bundle --platform=node --target=node20 --outfile=dist/seed.js --external:./node_modules/*",
+    "build": "node -e \"require('fs').mkdirSync('dist',{recursive:true})\" && npx esbuild src/index.ts --bundle --platform=node --target=node20 --outfile=dist/index.js --external:./node_modules/* && npx esbuild prisma/seed.ts --bundle --platform=node --target=node20 --outfile=dist/seed.js --external:./node_modules/* && npx esbuild scripts/backfill-niche.ts --bundle --platform=node --target=node20 --outfile=dist/backfill-niche.js --external:./node_modules/*",
     "build:tsc": "tsc",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
@@ -14,8 +14,8 @@
     "clear-client-stats": "ts-node scripts/clear-client-stats.ts",
     "seed:dev": "ts-node prisma/seed.ts",
     "db:seed": "npm run build && prisma db seed",
-    "backfill-niche": "npx esbuild scripts/backfill-niche.ts --bundle --platform=node --target=node20 --outfile=dist/backfill-niche.js --external:./node_modules/* && node dist/backfill-niche.js",
-    "backfill-niche:dry": "npx esbuild scripts/backfill-niche.ts --bundle --platform=node --target=node20 --outfile=dist/backfill-niche.js --external:./node_modules/* && node dist/backfill-niche.js --dry-run",
+    "backfill-niche": "node dist/backfill-niche.js",
+    "backfill-niche:dry": "node dist/backfill-niche.js --dry-run",
     "test": "vitest",
     "test:run": "vitest run"
   },
