@@ -1,5 +1,5 @@
 # HTTPS-терминация для POST /api/onboarding (и всего app:3100).
-# Переменная CADDY_DOMAIN задаётся в .env (DNS A → IP этого сервера).
+# Переменная CADDY_DOMAIN в .env (напр. bot.ex-ai.pro); DNS A этой записи → IP сервера.
 # Запуск: docker compose --profile https up -d
 #
 # Таймауты до 3m — Fastify requestTimeout 180s (онбординг с LLM/аудио).

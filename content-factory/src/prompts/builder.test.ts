@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildPrompt, type PromptContext } from './builder';
+import { buildPrompt, buildPromptStatic, buildPromptDynamic, type PromptContext } from './builder';
 
 describe('buildPrompt', () => {
   const baseCtx: PromptContext = {
@@ -58,5 +58,38 @@ describe('buildPrompt', () => {
       negativePrompt: '',
     };
     expect(buildPrompt('{tonality}|{target_audience}|{negative_prompt}', empty)).toBe('||');
+  });
+});
+
+describe('buildPromptStatic / buildPromptDynamic', () => {
+  const baseCtx: PromptContext = {
+    role: 'Агроном',
+    niche: 'сады',
+    contentTypes: ['ТОП'],
+    trustedSites: ['https://a.ru'],
+    dnaBrand: 'Бренд',
+    cta: 'Купить',
+    imageStyle: 'фото',
+    tonality: 'тепло',
+    targetAudience: 'дачники',
+    negativePrompt: 'пафос',
+    headlineRules: 'правила',
+    keyword: 'роза',
+    keywords: 'роза, сорт',
+    count: '30',
+    headline: 'Мой заголовок',
+    facts: 'Факт1',
+    productDetails: 'Саженцы',
+    text: 'текст статьи',
+  };
+
+  it('buildPromptStatic подставляет роль, не трогает {headline}', () => {
+    const t = 'Роль: {role}. Тема: {headline}.';
+    expect(buildPromptStatic(t, baseCtx)).toBe('Роль: Агроном. Тема: {headline}.');
+  });
+
+  it('buildPromptDynamic подставляет headline и keywords', () => {
+    const t = 'Тема: «{headline}». КЗ: {keywords}.';
+    expect(buildPromptDynamic(t, { headline: 'X', keywords: 'a, b' })).toBe('Тема: «X». КЗ: a, b.');
   });
 });

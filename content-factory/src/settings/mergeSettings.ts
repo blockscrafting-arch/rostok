@@ -1,9 +1,10 @@
 /**
  * Объединение настроек админа и клиента для мульти-клиента.
- * Мастер-промпты из AdminSettings подставляются через buildPrompt с контекстом клиента.
+ * Мастер-промпты из AdminSettings: клиентский контекст через buildPromptStatic;
+ * плейсхолдеры задачи ({keyword}, {headline}, {facts}…) подставляются в пайплайне.
  */
 import type { AdminSettings, Client, ClientSettings } from '@prisma/client';
-import { buildPrompt } from '../prompts/builder';
+import { buildPromptStatic } from '../prompts/builder';
 import { config } from '../config';
 import type { Settings } from '../types';
 
@@ -70,11 +71,11 @@ export function mergeSettings(
     productDetails,
   };
 
-  const prompt1 = buildPrompt(admin.masterPrompt1, promptContext);
-  const prompt2 = buildPrompt(admin.masterPrompt2, promptContext);
-  const prompt3 = buildPrompt(admin.masterPrompt3, promptContext);
-  const promptImage = buildPrompt(admin.masterPromptImage, promptContext);
-  const promptImageWithReference = buildPrompt(admin.masterPromptImageRef, promptContext);
+  const prompt1 = buildPromptStatic(admin.masterPrompt1, promptContext);
+  const prompt2 = buildPromptStatic(admin.masterPrompt2, promptContext);
+  const prompt3 = buildPromptStatic(admin.masterPrompt3, promptContext);
+  const promptImage = buildPromptStatic(admin.masterPromptImage, promptContext);
+  const promptImageWithReference = buildPromptStatic(admin.masterPromptImageRef, promptContext);
 
   const imageGenMode =
     (s.imageGenMode ?? 'immediate').toLowerCase() === 'scheduled' ? 'scheduled' : 'immediate';

@@ -68,7 +68,7 @@ export async function generationPipeline(
           headline,
           keywords,
           settings.prompt2,
-          settings.role,
+          settings,
           facts,
           comment,
           settings.textModel

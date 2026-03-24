@@ -1,10 +1,12 @@
 /**
  * SEO-черновик статьи: Промпт 2 + роль + факты из граундинга (+ опционально editorComment).
+ * Промпт 2 после mergeSettings уже содержит клиентские плейсхолдеры; здесь подставляются headline/keywords/facts.
  */
 import type OpenAI from 'openai';
 import { config } from '../config';
+import { buildPromptDynamic } from '../prompts/builder';
 import { truncateAtSentence } from '../utils/text';
-import type { TokenUsage } from '../types';
+import type { Settings, TokenUsage } from '../types';
 
 /**
  * Черновик по одному заголовку и фактам. Подзаголовки (H2) модель задаёт сама по смыслу текста.
@@ -14,7 +16,7 @@ export async function generateDraft(
   headline: string,
   keywords: string[],
   prompt2: string,
-  role: string,
+  settings: Settings,
   facts: string,
   editorComment?: string | null,
   textModelOverride?: string
@@ -36,8 +38,8 @@ ${headline}
   }
 
   const systemContent = prompt2
-    ? prompt2.replace(/\{role\}/g, role)
-    : `Ты — ${role}. Пиши экспертную статью для блога питомника. Используй только проверенные факты из блока выше. СТРОГО до 4000 символов. Чередуй длину предложений и абзацев. Начинай статью по-разному: с вопроса, с факта, с личной ремарки или сразу с темы — не используй один и тот же шаблон приветствия.`;
+    ? buildPromptDynamic(prompt2, { headline, keywords: kw, facts })
+    : `Ты — ${settings.role}. Пиши экспертную статью для блога питомника. Используй только проверенные факты из блока выше. СТРОГО до 4000 символов. Чередуй длину предложений и абзацев. Начинай статью по-разному: с вопроса, с факта, с личной ремарки или сразу с темы — не используй один и тот же шаблон приветствия.`;
 
   const res = await aiClient.chat.completions.create({
     model,

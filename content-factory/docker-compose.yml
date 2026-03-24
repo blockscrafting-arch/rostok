@@ -3,9 +3,9 @@
 # В .env задайте: POSTGRES_PASSWORD, REDIS_URL, NC_AUTH_JWT_SECRET.
 # DATABASE_URL и NC_DB собираются из POSTGRES_* — пароль не расходится (ошибка 28P01).
 #
-# HTTPS для API онбординга (Let's Encrypt): в .env задайте CADDY_DOMAIN (поддомен, DNS A → IP VPS),
+# HTTPS для API онбординга (Let's Encrypt): в .env задайте CADDY_DOMAIN (напр. bot.ex-ai.pro, DNS A → IP VPS),
 # затем: docker compose --profile https up -d
-# Откройте 80/tcp и 443/tcp на фаерволе. URL для клиентов: https://<CADDY_DOMAIN>/api/onboarding
+# Откройте 80/tcp и 443/tcp на фаерволе. Пример URL: https://bot.ex-ai.pro/api/onboarding
 # Рекомендация: закрыть прямой доступ к 3100 с интернета — в ports у app заменить на "127.0.0.1:3100:3100".
 #
 # NocoDB (на VPS): после старта откройте http://<IP-или-домен-сервера>:8080

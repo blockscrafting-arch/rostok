@@ -11,6 +11,7 @@ import { pipeline } from 'stream/promises';
 import pLimit from 'p-limit';
 import { config } from '../config';
 import { assertHostnameResolvesToPublicIp } from '../utils/ssrfResolve';
+import { logInfo } from '../utils/logger';
 
 /** Семафор для ffmpeg: не более 2 одновременных конвертаций (DoS-защита). */
 const ffmpegLimit = pLimit(2);
@@ -149,6 +150,12 @@ export async function downloadAndConvertToMp3Base64(fileLinkUrl: string): Promis
   });
 
   await pipeline(nodeReadable, sizeLimiter, writeStream);
+
+  logInfo('Audio file downloaded', {
+    hostname: hostname,
+    urlPreview: fileLinkUrl.slice(0, 80),
+    bytes: downloadedBytes,
+  });
 
   return ffmpegLimit(async () => runFfmpegConversion(tempIn, tempOut));
 }
