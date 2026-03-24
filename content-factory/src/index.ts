@@ -12,6 +12,7 @@ import { config } from './config';
 import { logInfo, logWarn, serializeError } from './utils/logger';
 import { registerAdminOpenRouterKeyHandlers } from './telegram/adminOpenRouterKey';
 import { startAppBotPolling, stopAppBotPolling } from './telegram/appBot';
+import { startOnboardingBotPolling, stopOnboardingBotPolling } from './telegram/onboardingBot';
 
 setRetryNotifier(notify);
 
@@ -64,6 +65,7 @@ function handleShutdown(signal: string): void {
     closeWorkers(),
     connection.quit().catch(() => {}),
     stopAppBotPolling(),
+    stopOnboardingBotPolling(),
   ];
   const api = getApiServer();
   if (api) {
@@ -83,6 +85,7 @@ logInfo('Content-Factory started');
 logGoogleDriveTemplateCopyHint();
 registerAdminOpenRouterKeyHandlers();
 startAppBotPolling();
+startOnboardingBotPolling();
 startWorkers();
 void startApiServer();
 mainLoop().catch((e) => {

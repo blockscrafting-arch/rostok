@@ -2,7 +2,6 @@
  * Бот уведомлений: ошибки, сводка, публикации — в личный чат заказчика.
  * Админам — полная сводка с расходами ($). Клиентам — только количество статей (без денег).
  */
-import { Telegraf } from 'telegraf';
 import { config } from '../config';
 import { serializeError } from '../utils/logger';
 import {
@@ -10,6 +9,7 @@ import {
   getArticleCountByClientAndPeriod,
 } from '../db/repositories/costRecords';
 import { appBot } from './appBot';
+import { onboardingBot } from './onboardingBot';
 import { assignOpenRouterKeyReplyMarkup } from './adminOpenRouterKey';
 import {
   daysInCalendarMonth,
@@ -32,18 +32,6 @@ function getOnboardingNotifyChatIds(): string[] {
     return raw.split(',').map((id) => id.trim()).filter(Boolean);
   }
   return getNotifyChatIds();
-}
-
-let _onboardingBot: Telegraf | null = null;
-
-/** Бот для уведомлений об онбординге; fallback на appBot если токен не задан. */
-function getOnboardingBot(): Telegraf {
-  const token = config.telegram.onboardingBotToken?.trim();
-  if (!token) return appBot;
-  if (!_onboardingBot) {
-    _onboardingBot = new Telegraf(token);
-  }
-  return _onboardingBot;
 }
 
 function escapeHtml(s: string): string {
@@ -85,7 +73,6 @@ export async function notifyNewBrief(
     .filter(Boolean)
     .join('\n');
 
-  const bot = getOnboardingBot();
   const chatIds = getOnboardingNotifyChatIds();
 
   let markup;
@@ -97,7 +84,7 @@ export async function notifyNewBrief(
 
   const results = await Promise.allSettled(
     chatIds.map((chatId) =>
-      bot.telegram.sendMessage(chatId, text, {
+      onboardingBot.telegram.sendMessage(chatId, text, {
         parse_mode: 'HTML',
         ...(markup ? markup : {}),
       })

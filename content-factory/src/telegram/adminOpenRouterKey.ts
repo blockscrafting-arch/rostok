@@ -4,6 +4,7 @@
  */
 import { Markup } from 'telegraf';
 import { appBot } from './appBot';
+import { onboardingBot, hasOnboardingBot } from './onboardingBot';
 import { config } from '../config';
 import { logInfo, logWarn } from '../utils/logger';
 import { getClientById, updateClient } from '../db/repositories/clients';
@@ -14,7 +15,11 @@ import {
   OPENROUTER_KEY_CALLBACK_PREFIX,
 } from './openRouterKeyUtils';
 
-function getNotifyChatIds(): string[] {
+function getOnboardingNotifyChatIds(): string[] {
+  const raw = config.telegram.onboardingNotifyChatId?.trim();
+  if (raw) {
+    return raw.split(',').map((s) => s.trim()).filter(Boolean);
+  }
   return config.telegram.notifyChatId
     .split(',')
     .map((s) => s.trim())
@@ -45,7 +50,7 @@ function canAssignOpenRouterKey(chatId: number | undefined, userId: number | und
     return admins.includes(userId);
   }
   const chatStr = String(chatId);
-  return getNotifyChatIds().some((nid) => nid === chatStr);
+  return getOnboardingNotifyChatIds().some((nid) => nid === chatStr);
 }
 
 function maskKeyHint(key: string): string {
@@ -63,11 +68,13 @@ export function registerAdminOpenRouterKeyHandlers(): void {
   const admins = config.telegram.adminUserIds;
   if (admins.length === 0) {
     logWarn(
-      'TELEGRAM_ADMIN_USER_IDS пуст: кнопку «Присвоить ключ» может нажать любой участник чата из TELEGRAM_NOTIFY_CHAT_ID. Задайте numeric user id через запятую для ограничения доступа.'
+      'TELEGRAM_ADMIN_USER_IDS пуст: кнопку «Присвоить ключ» может нажать любой участник чата. Задайте numeric user id через запятую для ограничения доступа.'
     );
   }
 
-  appBot.action(
+  const bot = hasOnboardingBot ? onboardingBot : appBot;
+
+  bot.action(
     new RegExp(
       `^${OPENROUTER_KEY_CALLBACK_PREFIX}([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$`,
       'i'
@@ -104,14 +111,14 @@ export function registerAdminOpenRouterKeyHandlers(): void {
     }
   );
 
-  appBot.command('cancel_ork', async (ctx) => {
+  bot.command('cancel_ork', async (ctx) => {
     const key = sessionKey(ctx.chat?.id, ctx.from?.id);
     if (pendingBySession.delete(key)) {
       await ctx.reply('Ввод ключа отменён.');
     }
   });
 
-  appBot.on('text', async (ctx, next) => {
+  bot.on('text', async (ctx, next) => {
     const text = ctx.message.text;
     if (text.startsWith('/')) {
       return next();
@@ -156,7 +163,7 @@ export function registerAdminOpenRouterKeyHandlers(): void {
       });
       await ctx.reply(
         [
-          '✅ Ключ сохранён в БД.',
+          'Ключ сохранён в БД.',
           `Клиент: <b>${escapeHtml(client.name)}</b>`,
           `Проверка: <code>${escapeHtml(maskKeyHint(apiKey))}</code>`,
         ].join('\n'),
