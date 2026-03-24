@@ -35,8 +35,13 @@ const EXTRACT_PROMPT = `Ты — AI-ассистент, который извл�
 — Если клиент НЕ назвал подробности — проанализируй ответ из шага 3 (продукт) и составь портрет аудитории на его основе.
 — Если невозможно определить — «Не указано, требует уточнения».
 
-ШАГ 3 → "dnaBrand" (строка, до 1500 символов) + "productDetails" (строка, до 1500 символов)
+ШАГ 3 → "niche" (строка, до 100 символов) + "dnaBrand" (строка, до 1500 символов) + "productDetails" (строка, до 1500 символов)
 О продукте и бренде. ЭТО САМЫЙ ВАЖНЫЙ ШАГ — здесь клиент часто надиктовывает много деталей.
+
+"niche" — Ниша / сфера деятельности:
+— Коротко: в какой отрасли работает клиент (например: «Питомник декоративных растений», «IT-консалтинг», «Детская одежда», «Стоматология»).
+— Максимум 3-5 слов. НЕ имя клиента, НЕ бренд — именно сфера бизнеса.
+— Если невозможно определить — «Не указано».
 
 "dnaBrand" — ДНК бренда:
 — Краткое описание бренда, позиционирование, уникальность, tone of voice.
@@ -105,6 +110,7 @@ const EXTRACT_PROMPT = `Ты — AI-ассистент, который извл�
 4. Если информация из одного шага дополняет другой — используй её (например, шаг 3 может помочь заполнить targetAudience из шага 2).`;
 
 export interface ExtractedClientSettings {
+  niche: string;
   dnaBrand: string;
   productDetails: string;
   role: string;
@@ -122,6 +128,7 @@ export interface ExtractedClientSettings {
 
 function emptyExtracted(): ExtractedClientSettings {
   return {
+    niche: '',
     dnaBrand: '',
     productDetails: '',
     role: '',
@@ -240,6 +247,7 @@ export async function extractClientSettings(answers: string[]): Promise<Extracte
   const roleTrim = truncate(String(parsed.role ?? ''), MAX_ROLE).trim();
   const imageStyleRaw = truncate(String(parsed.imageStyle ?? 'реалистичное фото'), MAX_SHORT);
   return {
+    niche: truncate(String(parsed.niche ?? ''), 100).trim(),
     dnaBrand: truncate(String(parsed.dnaBrand ?? ''), MAX_LONG),
     productDetails: truncate(String(parsed.productDetails ?? ''), MAX_LONG),
     role: roleTrim || 'Эксперт',

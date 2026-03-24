@@ -142,6 +142,7 @@ describe('onboardingService', () => {
     const { extractClientSettings } = await import('../ai/extractor');
     const { provisionClient } = await import('./clientProvisioning');
     vi.mocked(extractClientSettings).mockResolvedValueOnce({
+      niche: 'Тестовая ниша',
       dnaBrand: 'B',
       productDetails: 'P',
       role: 'Эксперт',

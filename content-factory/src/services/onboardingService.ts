@@ -58,7 +58,6 @@ export async function processWebOnboarding(input: WebOnboardingInput): Promise<W
   const { user, answers } = input;
   const clientName = user.name.trim().slice(0, 80) || 'Клиент';
   const email = user.email.trim();
-  const niche = clientName.slice(0, 200) || 'общее';
 
   const totalAnswers = answers.length;
   const audioCount = answers.filter((a) => a.audio && !a.answer?.trim()).length;
@@ -136,6 +135,7 @@ export async function processWebOnboarding(input: WebOnboardingInput): Promise<W
     elapsedMs: Date.now() - t0,
   });
 
+  const niche = extracted.niche || 'Не указано';
   const dnaBrand = extracted.dnaBrand.trim() || clientName;
   const productDetails = extracted.productDetails.trim() || dnaBrand;
   const preset = extracted.operationMode === 'turbo' ? TURBO_PRESET : SAFE_PRESET;
