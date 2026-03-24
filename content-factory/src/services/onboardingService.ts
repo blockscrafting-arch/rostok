@@ -7,7 +7,7 @@ import { downloadAndConvertToMp3Base64, transcribeAudio } from '../telegram/medi
 import { extractClientSettings } from '../ai/extractor';
 import { provisionClient } from './clientProvisioning';
 import { notifyNewBrief } from '../telegram/notifier';
-import { logWarn, serializeError } from '../utils/logger';
+import { logInfo, logWarn, serializeError } from '../utils/logger';
 
 export interface WebOnboardingInput {
   user: { name: string; email: string };
@@ -54,12 +54,23 @@ function isValidAudioUrl(url: unknown): url is string {
  * Обработать веб-онбординг: собрать ответы, расшифровать аудио, извлечь настройки, создать клиента.
  */
 export async function processWebOnboarding(input: WebOnboardingInput): Promise<WebOnboardingResult> {
+  const t0 = Date.now();
   const { user, answers } = input;
   const clientName = user.name.trim().slice(0, 80) || 'Клиент';
   const email = user.email.trim();
   const niche = clientName.slice(0, 200) || 'общее';
 
+  const totalAnswers = answers.length;
+  const audioCount = answers.filter((a) => a.audio && !a.answer?.trim()).length;
+  const textCount = answers.filter((a) => a.answer?.trim()).length;
+
+  logInfo('Onboarding started', { clientName, email, totalAnswers, textCount, audioCount });
+
   const answerStrings: string[] = [];
+  let audioOk = 0;
+  let audioFail = 0;
+  let skipped = 0;
+
   for (const item of answers) {
     let text = item.answer?.trim() ?? '';
     if (!text && item.audio) {
@@ -71,7 +82,15 @@ export async function processWebOnboarding(input: WebOnboardingInput): Promise<W
       try {
         const base64 = await downloadAndConvertToMp3Base64(item.audio);
         text = (await transcribeAudio(base64)) || '';
+        if (text) {
+          audioOk++;
+          logInfo('Audio transcribed', { step: item.step, chars: text.length });
+        } else {
+          audioFail++;
+          logWarn('Audio transcribed but empty result', { step: item.step });
+        }
       } catch (e) {
+        audioFail++;
         logWarn('Audio transcription failed', {
           step: item.step,
           url: item.audio.slice(0, 80),
@@ -81,6 +100,7 @@ export async function processWebOnboarding(input: WebOnboardingInput): Promise<W
       }
     }
     if (!text && !item.answer && !item.audio) {
+      skipped++;
       continue;
     }
     const block = item.question?.trim()
@@ -89,6 +109,16 @@ export async function processWebOnboarding(input: WebOnboardingInput): Promise<W
     if (block) answerStrings.push(block);
   }
 
+  logInfo('Answers processed', {
+    clientName,
+    total: totalAnswers,
+    collected: answerStrings.length,
+    audioOk,
+    audioFail,
+    skipped,
+    elapsedMs: Date.now() - t0,
+  });
+
   if (answerStrings.length === 0) {
     throw new OnboardingValidationError(
       'Нет ни одного ответа для обработки. В каждом шаге должен быть answer или audio.'
@@ -96,6 +126,16 @@ export async function processWebOnboarding(input: WebOnboardingInput): Promise<W
   }
 
   const extracted = await extractClientSettings(answerStrings);
+
+  logInfo('AI extraction done', {
+    clientName,
+    role: extracted.role.slice(0, 60),
+    operationMode: extracted.operationMode,
+    contentTypes: extracted.contentTypes.length,
+    trustedSites: extracted.trustedSites.length,
+    elapsedMs: Date.now() - t0,
+  });
+
   const dnaBrand = extracted.dnaBrand.trim() || clientName;
   const productDetails = extracted.productDetails.trim() || dnaBrand;
   const preset = extracted.operationMode === 'turbo' ? TURBO_PRESET : SAFE_PRESET;
@@ -127,6 +167,13 @@ export async function processWebOnboarding(input: WebOnboardingInput): Promise<W
     },
   });
 
+  logInfo('Client provisioned', {
+    clientId: result.clientId,
+    clientName,
+    spreadsheetId: result.spreadsheetId ?? 'none',
+    hasSpreadsheet: !!result.spreadsheetUrl,
+  });
+
   await notifyNewBrief(
     {
       clientId: result.clientId,
@@ -137,6 +184,15 @@ export async function processWebOnboarding(input: WebOnboardingInput): Promise<W
     },
     'web'
   );
+
+  logInfo('Onboarding completed', {
+    clientId: result.clientId,
+    clientName,
+    totalAnswers,
+    audioOk,
+    audioFail,
+    elapsedMs: Date.now() - t0,
+  });
 
   return {
     clientId: result.clientId,
