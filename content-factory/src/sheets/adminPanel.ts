@@ -158,7 +158,7 @@ async function getClientStats(): Promise<ClientStats[]> {
       _sum: { costUsd: true },
     }),
     prisma.$queryRaw<Array<{ client_id: string; last_activity: Date }>>`
-      SELECT client_id, MAX(updated_at) as last_activity
+      SELECT client_id, MAX("createdAt") as last_activity
       FROM tasks
       WHERE client_id = ANY(${clientIds})
       GROUP BY client_id
