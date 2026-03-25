@@ -72,12 +72,16 @@ export async function processWebOnboarding(input: WebOnboardingInput): Promise<W
 
   for (const item of answers) {
     let text = item.answer?.trim() ?? '';
+    if (text && item.audio) {
+      logInfo('Audio ignored: text answer takes priority', { step: item.step });
+    }
     if (!text && item.audio) {
       if (!isValidAudioUrl(item.audio)) {
         throw new OnboardingValidationError(
           `Недопустимый URL аудио в шаге ${item.step}: требуется полный https://`
         );
       }
+      logInfo('Audio download started', { step: item.step, url: item.audio.slice(0, 80) });
       try {
         const base64 = await downloadAndConvertToMp3Base64(item.audio);
         text = (await transcribeAudio(base64)) || '';
