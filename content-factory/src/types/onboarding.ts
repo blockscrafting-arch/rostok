@@ -19,4 +19,5 @@ export interface OnboardingSettingsForDb {
   imageGenMode: string;
   moderationEnabled: boolean;
   logoUrl?: string | null;
+  telegramChannelId?: string | null;
 }

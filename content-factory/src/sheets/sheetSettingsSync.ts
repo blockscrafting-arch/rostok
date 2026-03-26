@@ -9,6 +9,7 @@ import { readSettingsWithKeyMap } from './settings';
 import { invalidateClientSettingsCache } from '../workers/loadJobData';
 import { logInfo, logWarn, serializeError } from '../utils/logger';
 import type { Settings } from '../types';
+import { normalizeTelegramChannelIdForSend } from '../utils/telegramChannel';
 
 /** Значение по одному из ключей в колонке A (непустое). */
 export function kvGet(byKey: Record<string, string>, ...keys: string[]): string {
@@ -86,8 +87,7 @@ export function buildClientSettingsUpdateFromSheet(
 }
 
 /**
- * Прочитать лист клиента и обновить client_settings.
- * `Client.telegramChannelId` и токен бота из листа не обновляем — источник правды: онбординг / БД (NocoDB, SQL).
+ * Прочитать лист клиента и обновить client_settings + Client.telegramChannelId.
  * Не для legacy clientId === 'default'.
  */
 export async function syncClientSettingsFromSheet(clientId: string): Promise<boolean> {
@@ -106,6 +106,19 @@ export async function syncClientSettingsFromSheet(clientId: string): Promise<boo
       where: { clientId },
       data,
     });
+
+    // Синхронизируем telegramChannelId из листа в Client (клиент может поменять его в таблице)
+    const channelRaw = kvGet(byKey, 'Telegram-канал (@username)', 'Telegram-канал (id)', 'Telegram Channel ID', 'Channel ID');
+    if (channelRaw) {
+      const normalized = normalizeTelegramChannelIdForSend(channelRaw);
+      if (normalized && normalized !== (client.telegramChannelId ?? '')) {
+        await prisma.client.update({
+          where: { id: clientId },
+          data: { telegramChannelId: normalized },
+        });
+        logInfo('Sheet «Настройки»: telegramChannelId updated', { clientId, telegramChannelId: normalized });
+      }
+    }
 
     invalidateClientSettingsCache(clientId);
     logInfo('Sheet «Настройки» synced to DB', { clientId, spreadsheetId: sid });

@@ -168,6 +168,7 @@ export async function processWebOnboarding(input: WebOnboardingInput): Promise<W
       imageGenMode: preset.imageGenMode,
       moderationEnabled: preset.moderationEnabled,
       logoUrl: extracted.logoUrl,
+      telegramChannelId: input.telegramChannelId ?? null,
     },
   });
 

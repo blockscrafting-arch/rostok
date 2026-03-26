@@ -203,7 +203,7 @@ async function buildSettingsFromKeyMap(sid: string, byKey: Record<string, string
   const utmTemplate = getAny('UTM-шаблон', 'Шаблон UTM') ||
     '?utm_source=dzen&utm_medium=article&utm_campaign={campaign}';
 
-  const telegramChannelId = getAny('Telegram-канал (id)', 'Telegram Channel ID', 'Channel ID') ||
+  const telegramChannelId = getAny('Telegram-канал (@username)', 'Telegram-канал (id)', 'Telegram Channel ID', 'Channel ID') ||
     config.telegram.channelId;
 
   const dailySummaryTime = getAny('Время ежедневной сводки', 'Время сводки') || '21:00';

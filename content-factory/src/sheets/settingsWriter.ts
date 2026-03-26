@@ -23,7 +23,7 @@ const KEY_SYNONYMS: Record<string, string[]> = {
   'UTM-шаблон': ['Шаблон UTM'],
   'Время ежедневной сводки': ['Время сводки'],
   'Кол-во заголовков': ['Макс. заголовков'],
-  'Telegram-канал (id)': ['Telegram Channel ID', 'Channel ID'],
+  'Telegram-канал (@username)': ['Telegram-канал (id)', 'Telegram Channel ID', 'Channel ID'],
 };
 
 function rowForSettingsKey(key: string, keyToRow: Map<string, number>): number | undefined {
@@ -64,6 +64,7 @@ export function buildOnboardingSettingsSheetPairs(settings: OnboardingSettingsFo
     ['Типы контента', (settings.contentTypes ?? []).join(', ')],
     ['Доверенные сайты', (settings.trustedSites ?? []).join('\n')],
     ['Режим операции ИИ', settings.operationMode?.trim() ?? 'safe'],
+    ['Telegram-канал (@username)', settings.telegramChannelId?.trim() ?? ''],
   ];
 
   return pairs;
