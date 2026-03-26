@@ -80,6 +80,10 @@ export const config = {
     /** Дополнительный хост для fetch логотипов/медиа онбординга (например content.ex-ai.pro). */
     contentHost: envOptional('ONBOARDING_CONTENT_HOST'),
   },
+  /** Удаление фона логотипа после онбординга (https://www.remove.bg/api). Пусто — только заливка в S3 без снятия фона. */
+  removeBg: {
+    apiKey: envOptional('REMOVE_BG_API_KEY'),
+  },
   telegram: {
     botToken: env('TELEGRAM_BOT_TOKEN'),
     channelId: env('TELEGRAM_CHANNEL_ID'),

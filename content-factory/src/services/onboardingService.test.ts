@@ -18,6 +18,10 @@ vi.mock('../telegram/media', () => ({
   transcribeAudio: vi.fn().mockResolvedValue('расшифрованный текст'),
 }));
 
+vi.mock('../utils/logoProcessor', () => ({
+  processAndPersistOnboardingLogo: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('../ai/extractor', () => ({
   extractClientSettings: vi.fn().mockResolvedValue({
     dnaBrand: 'Тестовый бренд',

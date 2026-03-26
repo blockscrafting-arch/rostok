@@ -128,3 +128,49 @@ export async function syncOnboardingSettingsToSettingsSheet(
     });
   }
 }
+
+/**
+ * Обновить только строку «Ссылка на логотип для картинок» (после асинхронной обработки лого).
+ */
+export async function syncLogoUrlOnlyToSettingsSheet(spreadsheetId: string, logoUrl: string): Promise<void> {
+  const sid = spreadsheetId.trim();
+  if (!sid) return;
+
+  const key = 'Ссылка на логотип для картинок';
+  try {
+    const getRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: sid,
+      range: `'${SHEET_NAME}'!A1:B300`,
+    });
+    const rows = (getRes.data.values ?? []) as string[][];
+    const keyToRow = new Map<string, number>();
+    for (let i = 0; i < rows.length; i++) {
+      const k = String(rows[i]?.[0] ?? '').trim();
+      if (k) keyToRow.set(k, i + 1);
+    }
+
+    let rowNum = rowForSettingsKey(key, keyToRow);
+    if (rowNum == null) {
+      rowNum = rows.length + 1;
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: sid,
+        range: `'${SHEET_NAME}'!A${rowNum}:B${rowNum}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [[key, logoUrl]] },
+      });
+    } else {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: sid,
+        range: `'${SHEET_NAME}'!B${rowNum}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [[logoUrl]] },
+      });
+    }
+    logInfo('Logo URL synced to settings sheet', { spreadsheetId: sid });
+  } catch (e) {
+    logWarn('syncLogoUrlOnlyToSettingsSheet failed', {
+      spreadsheetId: sid,
+      error: serializeError(e).message,
+    });
+  }
+}

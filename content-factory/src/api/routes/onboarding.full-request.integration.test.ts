@@ -15,6 +15,7 @@ const hoisted = vi.hoisted(() => {
   };
 
   const extractedSafe = {
+    niche: 'ООО Розовый сад',
     dnaBrand: 'Питомник «Розовый сад»',
     productDetails: 'Саженцы роз, удобрения, консультации по уходу',
     role: 'Агроном-консультант',
@@ -55,6 +56,10 @@ vi.mock('../../telegram/notifier', () => ({
 vi.mock('../../telegram/media', () => ({
   downloadAndConvertToMp3Base64: hoisted.downloadAndConvertToMp3Base64,
   transcribeAudio: hoisted.transcribeAudio,
+}));
+
+vi.mock('../../utils/logoProcessor', () => ({
+  processAndPersistOnboardingLogo: vi.fn().mockResolvedValue(undefined),
 }));
 
 import { onboardingRoute } from './onboarding';

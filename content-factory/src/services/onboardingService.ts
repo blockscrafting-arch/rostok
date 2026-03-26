@@ -8,6 +8,7 @@ import { extractClientSettings } from '../ai/extractor';
 import { provisionClient } from './clientProvisioning';
 import { notifyNewBrief } from '../telegram/notifier';
 import { logInfo, logWarn, serializeError } from '../utils/logger';
+import { processAndPersistOnboardingLogo } from '../utils/logoProcessor';
 
 export interface WebOnboardingInput {
   user: { name: string; email: string };
@@ -198,6 +199,8 @@ export async function processWebOnboarding(input: WebOnboardingInput): Promise<W
     audioFail,
     elapsedMs: Date.now() - t0,
   });
+
+  void processAndPersistOnboardingLogo(result.clientId, extracted.logoUrl, result.spreadsheetId);
 
   return {
     clientId: result.clientId,

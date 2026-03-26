@@ -20,6 +20,7 @@ const base: OnboardingSettingsForDb = {
   imageGenMode: 'scheduled',
   moderationEnabled: true,
   logoUrl: null,
+  telegramChannelId: null,
 };
 
 describe('buildOnboardingSettingsSheetPairs', () => {
@@ -27,9 +28,9 @@ describe('buildOnboardingSettingsSheetPairs', () => {
     const pairs = buildOnboardingSettingsSheetPairs(base);
     const map = Object.fromEntries(pairs);
     expect(map['Роль']).toBe('Эксперт');
-    expect(map['Макс. статей в день']).toBe('5');
+    expect(map['Максимум статей в день']).toBe('5');
     expect(map['Режим модерации']).toBe('да');
-    expect(map['Время генерации']).toBe('05:00');
+    expect(map['Время генерации картинок']).toBe('05:00');
     expect(map['Режим генерации картинки']).toBe('По времени');
     expect(map['ДНК Бренда']).toBe('ДНК тест');
     expect(map['Типы контента']).toBe('обзор, ТОП-10');
