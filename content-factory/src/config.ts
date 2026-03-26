@@ -77,6 +77,8 @@ export const config = {
     accessKey: envOptional('S3_ACCESS_KEY'),
     secretKey: envOptional('S3_SECRET_KEY'),
     bucket: envOptional('S3_BUCKET', 'content-factory-images'),
+    /** Дополнительный хост для fetch логотипов/медиа онбординга (например content.ex-ai.pro). */
+    contentHost: envOptional('ONBOARDING_CONTENT_HOST'),
   },
   telegram: {
     botToken: env('TELEGRAM_BOT_TOKEN'),

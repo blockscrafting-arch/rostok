@@ -23,6 +23,19 @@ function getS3HostPattern(): RegExp | null {
   }
 }
 
+function getContentHostPattern(): RegExp | null {
+  const raw = config.s3.contentHost?.trim();
+  if (!raw) return null;
+  try {
+    // Принимаем как hostname или как полный URL (https://content.ex-ai.pro)
+    const host = raw.startsWith('http') ? new URL(raw).hostname : raw;
+    const escaped = host.replace(/\./g, '\\.');
+    return new RegExp(`^${escaped}$`, 'i');
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Проверить, разрешён ли URL для исходящего fetch (только https, хосты в allowlist).
  * data: URL не разрешены для fetch (возвращает false).
@@ -40,6 +53,8 @@ export function isFetchUrlAllowed(url: string): boolean {
     }
     const s3 = getS3HostPattern();
     if (s3 && s3.test(host)) return true;
+    const content = getContentHostPattern();
+    if (content && content.test(host)) return true;
     return false;
   } catch {
     return false;
