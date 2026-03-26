@@ -13,27 +13,39 @@ const ALLOWED_HOST_PATTERNS = [
   /^www\.google\.com$/i,
 ];
 
+// Ленивая инициализация: паттерны создаются один раз при первом вызове,
+// config читается как const, поэтому пересчёт не нужен.
+let _s3HostPattern: RegExp | null | undefined;
+let _contentHostPattern: RegExp | null | undefined;
+
 function getS3HostPattern(): RegExp | null {
+  if (_s3HostPattern !== undefined) return _s3HostPattern;
   try {
     const u = new URL(config.s3.endpoint);
     const host = u.hostname.replace(/\./g, '\\.');
-    return new RegExp(`^${host}$`, 'i');
+    _s3HostPattern = new RegExp(`^${host}$`, 'i');
   } catch {
-    return null;
+    _s3HostPattern = null;
   }
+  return _s3HostPattern;
 }
 
 function getContentHostPattern(): RegExp | null {
+  if (_contentHostPattern !== undefined) return _contentHostPattern;
   const raw = config.s3.contentHost?.trim();
-  if (!raw) return null;
+  if (!raw) {
+    _contentHostPattern = null;
+    return null;
+  }
   try {
     // Принимаем как hostname или как полный URL (https://content.ex-ai.pro)
     const host = raw.startsWith('http') ? new URL(raw).hostname : raw;
     const escaped = host.replace(/\./g, '\\.');
-    return new RegExp(`^${escaped}$`, 'i');
+    _contentHostPattern = new RegExp(`^${escaped}$`, 'i');
   } catch {
-    return null;
+    _contentHostPattern = null;
   }
+  return _contentHostPattern;
 }
 
 /**

@@ -24,12 +24,16 @@ async function fetchLogoBuffer(url: string): Promise<Buffer> {
   return Buffer.from(await r.arrayBuffer());
 }
 
-/** Есть ли реальная прозрачность (альфа < 255 хотя бы в одном пикселе). */
+/**
+ * Есть ли реальная прозрачность (альфа < 255 хотя бы в одном пикселе).
+ * Работает для RGBA и grayscale+alpha (GA) форматов.
+ */
 async function imageHasTransparentPixels(buf: Buffer): Promise<boolean> {
-  const meta = await sharp(buf).metadata();
+  const [meta, stats] = await Promise.all([sharp(buf).metadata(), sharp(buf).stats()]);
   if (!meta.hasAlpha) return false;
-  const stats = await sharp(buf).stats();
-  const alpha = stats.channels[3];
+  // RGBA → 4 канала (alpha = 3), GA → 2 канала (alpha = 1), RGB → нет alpha
+  const alphaIdx = stats.channels.length - 1;
+  const alpha = stats.channels[alphaIdx];
   if (!alpha) return false;
   return alpha.min < 255;
 }
@@ -39,8 +43,11 @@ async function removeBackgroundWithRemoveBg(buf: Buffer): Promise<Buffer> {
   if (!key) {
     throw new Error('REMOVE_BG_API_KEY not set');
   }
+  // Всегда конвертируем в PNG перед отправкой: remove.bg ожидает соответствие
+  // MIME-типа реальному формату. Исходный buf может быть JPEG или WebP.
+  const pngBuf = await sharp(buf).png().toBuffer();
   const form = new FormData();
-  form.append('image_file', new Blob([new Uint8Array(buf)], { type: 'image/png' }), 'logo.png');
+  form.append('image_file', new Blob([new Uint8Array(pngBuf)], { type: 'image/png' }), 'logo.png');
   form.append('size', 'regular');
   const res = await fetch('https://api.remove.bg/v1.0/removebg', {
     method: 'POST',
@@ -54,8 +61,17 @@ async function removeBackgroundWithRemoveBg(buf: Buffer): Promise<Buffer> {
   return Buffer.from(await res.arrayBuffer());
 }
 
+/**
+ * Обрезать прозрачные края (trim) и вернуть PNG.
+ * trim() применяется только если в буфере есть alpha-канал — иначе он обрезает
+ * пиксели, совпадающие с угловым пикселем, что уничтожит содержимое без фона.
+ */
 async function toTrimmedPng(buf: Buffer): Promise<Buffer> {
-  return sharp(buf).trim({ threshold: 5, lineArt: true }).png().toBuffer();
+  const meta = await sharp(buf).metadata();
+  if (meta.hasAlpha) {
+    return sharp(buf).trim({ threshold: 5, lineArt: true }).png().toBuffer();
+  }
+  return sharp(buf).png().toBuffer();
 }
 
 /**
