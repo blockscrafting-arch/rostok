@@ -30,7 +30,7 @@ export async function getSheetId(spreadsheetIdOverride?: string): Promise<number
   const sheet = res.data.sheets?.find(
     (s) => normalizeSheetName(s.properties?.title ?? '') === normalizeSheetName(TASKS_SHEET_NAME)
   );
-  if (!sheet?.properties?.sheetId) {
+  if (sheet?.properties?.sheetId == null) {
     const available = res.data.sheets?.map((s) => ({
       title: s.properties?.title ?? '?',
       firstCharCode: s.properties?.title?.codePointAt(0),

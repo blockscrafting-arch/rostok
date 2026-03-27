@@ -151,7 +151,7 @@ export async function shareWithEmail(
 export async function hideTechnicalColumns(spreadsheetId: string): Promise<void> {
   const res = await sheets.spreadsheets.get({ spreadsheetId });
   const sheet = res.data.sheets?.find((s) => s.properties?.title === TASKS_SHEET_NAME);
-  if (!sheet?.properties?.sheetId) {
+  if (sheet?.properties?.sheetId == null) {
     logWarn('hideTechnicalColumns: sheet not found', { spreadsheetId, sheetName: TASKS_SHEET_NAME });
     return;
   }
