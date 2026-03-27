@@ -236,6 +236,9 @@ async function clearStaleRows(
   }
 }
 
+/** Значения, которые maskPresence пишет вместо реального токена/ключа. */
+const MASKED_DISPLAY_VALUES = new Set(['—', 'есть', 'PENDING', '']);
+
 async function syncClientsSheet(spreadsheetId: string): Promise<void> {
   await ensureSheetExists(spreadsheetId, CLIENTS_SHEET);
 
@@ -243,16 +246,40 @@ async function syncClientsSheet(spreadsheetId: string): Promise<void> {
 
   const existingRes = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `'${CLIENTS_SHEET}'!A2:D1000`,
+    range: `'${CLIENTS_SHEET}'!A2:H1000`,
   });
   const existingRows = (existingRes.data.values ?? []) as string[][];
 
   const sheetActiveMap = new Map<string, boolean>();
+  const sheetChannelMap = new Map<string, string>();
+  const sheetBotTokenMap = new Map<string, string>();
+  const sheetOpenRouterMap = new Map<string, string>();
+
   for (const row of existingRows) {
     const id = (row[0] ?? '').trim();
+    if (!id) continue;
+
     const activeStr = (row[3] ?? '').trim().toUpperCase();
-    if (id && (activeStr === 'TRUE' || activeStr === 'FALSE')) {
+    if (activeStr === 'TRUE' || activeStr === 'FALSE') {
       sheetActiveMap.set(id, activeStr === 'TRUE');
+    }
+
+    // F (5): Канал TG — отображается как реальное значение
+    const channelVal = (row[5] ?? '').trim();
+    if (channelVal && channelVal !== '—') {
+      sheetChannelMap.set(id, channelVal);
+    }
+
+    // G (6): Бот TG — замаскировано; если введён реальный токен — сохраняем
+    const botTokenVal = (row[6] ?? '').trim();
+    if (botTokenVal && !MASKED_DISPLAY_VALUES.has(botTokenVal)) {
+      sheetBotTokenMap.set(id, botTokenVal);
+    }
+
+    // H (7): OpenRouter — замаскировано; если введён реальный ключ — сохраняем
+    const openRouterVal = (row[7] ?? '').trim();
+    if (openRouterVal && !MASKED_DISPLAY_VALUES.has(openRouterVal)) {
+      sheetOpenRouterMap.set(id, openRouterVal);
     }
   }
 
@@ -275,6 +302,40 @@ async function syncClientsSheet(spreadsheetId: string): Promise<void> {
         isActive: upd.isActive,
       });
     }
+  }
+
+  // Синхронизация Канал TG, Бот TG, OpenRouter из листа в БД
+  for (const client of clients) {
+    const updates: Record<string, string> = {};
+
+    const sheetChannel = sheetChannelMap.get(client.id);
+    if (sheetChannel && sheetChannel !== (client.telegramChannelId ?? '')) {
+      updates.telegramChannelId = sheetChannel;
+    }
+
+    const sheetBotToken = sheetBotTokenMap.get(client.id);
+    if (sheetBotToken) {
+      updates.telegramBotToken = sheetBotToken;
+    }
+
+    const sheetOpenRouter = sheetOpenRouterMap.get(client.id);
+    if (sheetOpenRouter) {
+      updates.openrouterApiKey = sheetOpenRouter;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await prisma.client.update({
+        where: { id: client.id },
+        data: updates,
+      });
+      logInfo('Admin panel: client fields updated from sheet', {
+        clientId: client.id,
+        updatedFields: Object.keys(updates),
+      });
+    }
+  }
+
+  if (dbUpdates.length > 0 || sheetBotTokenMap.size > 0 || sheetOpenRouterMap.size > 0 || sheetChannelMap.size > 0) {
     const refreshed = await getAllClients();
     clients.length = 0;
     clients.push(...refreshed);
