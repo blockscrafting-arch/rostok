@@ -26,12 +26,21 @@ export async function getSheetId(spreadsheetIdOverride?: string): Promise<number
   const sid = spreadsheetIdOverride ?? spreadsheetId;
   if (sid === spreadsheetId && cachedSheetId != null) return cachedSheetId;
   const res = await sheets.spreadsheets.get({ spreadsheetId: sid });
+  const normalizeSheetName = (s: string) => s.trim().normalize('NFC');
   const sheet = res.data.sheets?.find(
-    (s) => s.properties?.title === TASKS_SHEET_NAME
+    (s) => normalizeSheetName(s.properties?.title ?? '') === normalizeSheetName(TASKS_SHEET_NAME)
   );
   if (!sheet?.properties?.sheetId) {
-    const available = res.data.sheets?.map((s) => s.properties?.title ?? '?') ?? [];
-    logWarn('getSheetId: sheet not found', { spreadsheetId: sid, target: TASKS_SHEET_NAME, availableSheets: available });
+    const available = res.data.sheets?.map((s) => ({
+      title: s.properties?.title ?? '?',
+      firstCharCode: s.properties?.title?.codePointAt(0),
+    })) ?? [];
+    logWarn('getSheetId: sheet not found', {
+      spreadsheetId: sid,
+      target: TASKS_SHEET_NAME,
+      targetFirstCharCode: TASKS_SHEET_NAME.codePointAt(0),
+      availableSheets: available,
+    });
     throw new Error(`Лист "${TASKS_SHEET_NAME}" не найден в таблице`);
   }
   if (sid === spreadsheetId) cachedSheetId = sheet.properties.sheetId;
