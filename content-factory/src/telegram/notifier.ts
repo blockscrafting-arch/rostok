@@ -131,13 +131,13 @@ async function sendToChat(chatId: string, message: string, botToken?: string): P
 
 /**
  * Уведомить о публикации: через бота клиента (если задан botToken + notifyChatId),
- * иначе через глобальный appBot на TELEGRAM_NOTIFY_CHAT_ID.
+ * через appBot (если задан только notifyChatId), иначе — на глобальный TELEGRAM_NOTIFY_CHAT_ID.
  */
 export async function notifyPublish(
   message: string,
   opts?: { botToken?: string; notifyChatId?: string }
 ): Promise<void> {
-  if (opts?.botToken && opts?.notifyChatId) {
+  if (opts?.notifyChatId) {
     await sendToChat(opts.notifyChatId, message, opts.botToken);
     return;
   }
