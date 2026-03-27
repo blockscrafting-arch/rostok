@@ -39,11 +39,16 @@ function parseHeadlinesWithKeywords(
       const kwMatch = line.match(/^КЗ:\s*(.+)$/i);
       if (kwMatch) {
         keywords = kwMatch[1]
+          .replace(/^\[|\]$/g, '')
           .split(/[,;]/)
           .map((s) => s.trim().slice(0, 200))
           .filter((s) => s.length > 1);
       } else {
-        const cleaned = line.replace(/^\s*[-*\d.)]\s*/, '').trim();
+        const cleaned = line
+          .replace(/^\s*\d+[.)]\s*/, '')
+          .replace(/\*{1,2}/g, '')
+          .replace(/^["«]+|["»]+$/g, '')
+          .trim();
         if (cleaned.length > 5 && cleaned.length < 150 && !headline) {
           headline = cleaned;
         }
@@ -65,7 +70,13 @@ function parseHeadlinesWithKeywords(
 function parseHeadlinesLegacy(text: string, count: number): string[] {
   const lines = text
     .split(/\n/)
-    .map((s) => s.replace(/^\s*[-*\d.)]\s*/, '').trim())
+    .map((s) =>
+      s
+        .replace(/^\s*\d+[.)]\s*/, '')
+        .replace(/\*{1,2}/g, '')
+        .replace(/^["«]+|["»]+$/g, '')
+        .trim()
+    )
     .filter((s) => s.length > 5 && s.length < 150);
   return lines.slice(0, count);
 }
@@ -135,15 +146,15 @@ function ensureRelevantKeywords(
 }
 
 const DEFAULT_PROMPT = `По ключевому слову "{keyword}" и НЧ-запросам: {keywords}.
-Сгенерируй {count} заголовков статей для блога питомника (лаконичные, с пользой для читателя).
+Сгенерируй {count} заголовков статей для блога (лаконичные, с пользой для читателя).
 Для каждого заголовка подбери свой набор из 5–10 наиболее релевантных НЧ-запросов из списка выше. Разные заголовки — разные подмножества КЗ.
-Важно: ключевое слово «{keyword}» должно быть в КЗ, если заголовок его упоминает. То же для сортов и терминов из списка (Voyage, Роз де Цистерсьен, шрабы и т.п.).
+Важно: ключевое слово «{keyword}» должно быть в КЗ, если заголовок его упоминает. То же для терминов из списка.
 Формат ответа — строго:
-1. [Заголовок]
-КЗ: [запрос1, запрос2, ...]
+1. Заголовок
+КЗ: запрос1, запрос2, ...
 
-2. [Заголовок]
-КЗ: [запрос1, запрос2, ...]
+2. Заголовок
+КЗ: запрос1, запрос2, ...
 ...
 (и так до {count})`;
 

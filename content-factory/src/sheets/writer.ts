@@ -3,6 +3,7 @@
  */
 import { formatDateYYYYMMDDInMsk } from '../utils/dateMsk';
 import { sheets, spreadsheetId, getSheetId } from './client';
+import { logInfo } from '../utils/logger';
 import type { SheetTask, TaskStatus } from '../types';
 import type { ArticleResult } from '../types';
 import type { FrequencyLimit } from '../types';
@@ -74,6 +75,7 @@ export async function writeHeadlines(task: SheetTask, headlines: string[], ctx?:
 /** Записать ключевые запросы (колонка D=4). */
 export async function writeKeywords(task: SheetTask, keywords: string[], ctx?: SheetContext): Promise<void> {
   const line = keywords.join(', ').slice(0, MAX_CELL_KEYWORDS);
+  logInfo('writeKeywords', { spreadsheetId: ctx?.spreadsheetId ?? spreadsheetId, row: task.rowIndex, keywordsCount: keywords.length, preview: line.slice(0, 120) });
   await updateCell(task.rowIndex, 4, line, ctx);
 }
 
