@@ -62,7 +62,7 @@ export async function semanticsPipeline(
           const validKwSet = new Set(kwStrings.map((k) => k.toLowerCase()));
           return items.map((item) => {
             const filtered = item.keywords.filter((k) => validKwSet.has(k.trim().toLowerCase()));
-            const keywords = filtered.length > 0 ? filtered : kwStrings.slice(0, 10);
+            const keywords = filtered.length > 0 ? filtered : item.keywords;
             return { ...item, keywords };
           });
         })()
