@@ -57,12 +57,16 @@ export async function semanticsPipeline(
         ),
       'Headlines'
     );
-    const validKwSet = new Set(kwStrings.map((k) => k.toLowerCase()));
-    const filteredItems = items.map((item) => {
-      const filtered = item.keywords.filter((k) => validKwSet.has(k.trim().toLowerCase()));
-      const keywords = filtered.length > 0 ? filtered : kwStrings.slice(0, 10);
-      return { ...item, keywords };
-    });
+    const filteredItems = kwStrings.length > 0
+      ? (() => {
+          const validKwSet = new Set(kwStrings.map((k) => k.toLowerCase()));
+          return items.map((item) => {
+            const filtered = item.keywords.filter((k) => validKwSet.has(k.trim().toLowerCase()));
+            const keywords = filtered.length > 0 ? filtered : kwStrings.slice(0, 10);
+            return { ...item, keywords };
+          });
+        })()
+      : items;
 
     const headlinesCostUsd = totalCostUsd([usage]);
 
