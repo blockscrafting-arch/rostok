@@ -227,9 +227,12 @@ export async function createClientTable(
   if (options?.shareWithEmail?.trim()) {
     await shareWithEmail(newId, options.shareWithEmail.trim(), 'writer');
   }
-  const adminEmail = config.google.adminEmail?.trim();
-  if (adminEmail) {
-    await shareWithEmail(newId, adminEmail, 'writer');
+  const adminEmailRaw = config.google.adminEmail?.trim();
+  if (adminEmailRaw) {
+    const adminEmails = adminEmailRaw.split(',').map((e) => e.trim()).filter(Boolean);
+    for (const email of adminEmails) {
+      await shareWithEmail(newId, email, 'writer');
+    }
   }
   if (options?.hideTechnicalColumns !== false) {
     await hideTechnicalColumns(newId);
