@@ -53,7 +53,7 @@ export async function provisionClient(input: ProvisionClientInput): Promise<Prov
         telegramChannelId: tgChannel,
         telegramBotToken: tgToken,
         openrouterApiKey: 'PENDING',
-        isActive: false,
+        isActive: true,
         onboardingDone: false,
       },
     });
@@ -101,7 +101,7 @@ export async function provisionClient(input: ProvisionClientInput): Promise<Prov
 
     await prisma.client.update({
       where: { id: client.id },
-      data: { spreadsheetId, onboardingDone: true, isActive: true },
+      data: { spreadsheetId, onboardingDone: true },
     });
   } else {
     await prisma.client.update({

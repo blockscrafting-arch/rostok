@@ -293,7 +293,10 @@ export async function mainLoop(): Promise<void> {
             };
             const queueContext: QueueContext = {
               clientId: refreshed.id,
-              openrouterApiKey: refreshed.openrouterApiKey,
+              openrouterApiKey:
+                refreshed.openrouterApiKey && refreshed.openrouterApiKey !== 'PENDING'
+                  ? refreshed.openrouterApiKey
+                  : config.openrouter.apiKey,
               telegramBotToken: refreshed.telegramBotToken ?? undefined,
             };
             const tasks = await readTasks({ spreadsheetId: client.spreadsheetId });

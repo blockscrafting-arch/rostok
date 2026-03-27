@@ -15,7 +15,7 @@ import { generateHeadlines } from '../ai/headlines';
 import { openrouter } from '../ai/client';
 import { totalCostUsd } from '../ai/cost';
 import { withRetry } from '../utils/retry';
-import { logInfo } from '../utils/logger';
+import { logInfo, logWarn } from '../utils/logger';
 import type { SheetTask, Settings, PipelineContext } from '../types';
 
 const MAX_KEYWORD_LENGTH = 500;
@@ -33,10 +33,17 @@ export async function semanticsPipeline(
   const keywordSafe = task.keyword.slice(0, MAX_KEYWORD_LENGTH);
   try {
     await updateStatus(task, 'Генерация', sheetCtx);
-    const keywordList = await withRetry(
-      () => fetchKeywords(keywordSafe, task.frequencyLimit),
-      'Wordstat'
-    );
+    const keywordList = await (async () => {
+      try {
+        return await withRetry(
+          () => fetchKeywords(keywordSafe, task.frequencyLimit),
+          'Wordstat'
+        );
+      } catch {
+        logWarn('Wordstat failed, continuing without keywords', { keyword: keywordSafe });
+        return [] as Awaited<ReturnType<typeof fetchKeywords>>;
+      }
+    })();
     const kwStrings = keywordList.map((k) => k.keyword.slice(0, MAX_KEYWORD_LENGTH));
     const { items, usage } = await withRetry(
       () =>
