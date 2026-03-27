@@ -3,6 +3,7 @@
  */
 import { google } from 'googleapis';
 import { config } from '../config';
+import { logWarn } from '../utils/logger';
 
 const auth = new google.auth.GoogleAuth({
   keyFile: config.google.serviceAccountKey,
@@ -29,6 +30,8 @@ export async function getSheetId(spreadsheetIdOverride?: string): Promise<number
     (s) => s.properties?.title === TASKS_SHEET_NAME
   );
   if (!sheet?.properties?.sheetId) {
+    const available = res.data.sheets?.map((s) => s.properties?.title ?? '?') ?? [];
+    logWarn('getSheetId: sheet not found', { spreadsheetId: sid, target: TASKS_SHEET_NAME, availableSheets: available });
     throw new Error(`Лист "${TASKS_SHEET_NAME}" не найден в таблице`);
   }
   if (sid === spreadsheetId) cachedSheetId = sheet.properties.sheetId;

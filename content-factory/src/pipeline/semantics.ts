@@ -81,6 +81,7 @@ export async function semanticsPipeline(
         logWarn('insertTaskRows failed (non-fatal): first headline saved, extra rows skipped', {
           keyword: task.keyword,
           extraRows: filteredItems.length - 1,
+          spreadsheetId: sheetCtx?.spreadsheetId ?? 'default',
           errorMessage: insertErr instanceof Error ? insertErr.message : String(insertErr),
         });
       }
