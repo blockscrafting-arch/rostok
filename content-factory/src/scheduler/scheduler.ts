@@ -286,11 +286,12 @@ export async function mainLoop(): Promise<void> {
               logInfo('Client skipped: no settings after sync', { clientId: client.id });
               continue;
             }
-            // Авто-захват notifyChatId: если бот задан, но уведомления ещё не настроены
-            if (refreshed.telegramBotToken && !refreshed.notifyChatId) {
+            // Авто-захват notifyChatId: если бот задан — проверяем новые /start каждый цикл
+            if (refreshed.telegramBotToken) {
               const captured = await captureNotifyChatIdFromStart(
                 refreshed.id,
-                refreshed.telegramBotToken
+                refreshed.telegramBotToken,
+                refreshed.notifyChatId
               ).catch(() => null);
               if (captured) refreshed.notifyChatId = captured;
             }

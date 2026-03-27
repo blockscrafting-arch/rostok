@@ -119,14 +119,17 @@ export async function notify(message: string): Promise<void> {
   });
 }
 
-/** Отправить сообщение в один чат (для персональной сводки клиенту). */
+/** Отправить сообщение в один или несколько чатов (comma-separated chatId). */
 async function sendToChat(chatId: string, message: string, botToken?: string): Promise<void> {
   const bot = botToken ? new Telegraf(botToken) : appBot;
-  try {
-    await bot.telegram.sendMessage(chatId, message, { parse_mode: 'HTML' });
-  } catch (e) {
-    console.error('Send to client failed:', { chatId, errorMessage: serializeError(e).message });
-  }
+  const ids = chatId.split(',').map((s) => s.trim()).filter(Boolean);
+  await Promise.allSettled(
+    ids.map((id) =>
+      bot.telegram.sendMessage(id, message, { parse_mode: 'HTML' }).catch((e) => {
+        console.error('Send to client failed:', { chatId: id, errorMessage: serializeError(e).message });
+      })
+    )
+  );
 }
 
 /**
