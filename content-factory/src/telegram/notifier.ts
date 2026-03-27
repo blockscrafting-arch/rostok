@@ -2,6 +2,7 @@
  * Бот уведомлений: ошибки, сводка, публикации — в личный чат заказчика.
  * Админам — полная сводка с расходами ($). Клиентам — только количество статей (без денег).
  */
+import { Telegraf } from 'telegraf';
 import { config } from '../config';
 import { serializeError } from '../utils/logger';
 import {

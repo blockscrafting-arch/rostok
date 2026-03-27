@@ -21,6 +21,7 @@ const CLIENTS_HEADERS = [
   'Онбординг',
   'Канал TG',
   'Бот TG',
+  'Chat уведомлений',
   'OpenRouter',
   'Таблица клиента',
   'Создан',
@@ -44,6 +45,7 @@ interface ClientRow {
   onboardingDone: boolean;
   telegramChannelId: string | null;
   telegramBotToken: string | null;
+  notifyChatId: string | null;
   openrouterApiKey: string;
   spreadsheetId: string | null;
   createdAt: Date;
@@ -94,6 +96,7 @@ function clientToRow(c: ClientRow): string[] {
     c.onboardingDone ? 'Да' : 'Нет',
     c.telegramChannelId ?? '—',
     maskPresence(c.telegramBotToken),
+    c.notifyChatId ?? '—',
     maskPresence(c.openrouterApiKey),
     spreadsheetUrl(c.spreadsheetId),
     formatDate(c.createdAt),
@@ -123,6 +126,7 @@ async function getAllClients(): Promise<ClientRow[]> {
       onboardingDone: true,
       telegramChannelId: true,
       telegramBotToken: true,
+      notifyChatId: true,
       openrouterApiKey: true,
       spreadsheetId: true,
       createdAt: true,
@@ -246,7 +250,7 @@ async function syncClientsSheet(spreadsheetId: string): Promise<void> {
 
   const existingRes = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `'${CLIENTS_SHEET}'!A2:H1000`,
+    range: `'${CLIENTS_SHEET}'!A2:I1000`,
   });
   const existingRows = (existingRes.data.values ?? []) as string[][];
 
@@ -276,8 +280,10 @@ async function syncClientsSheet(spreadsheetId: string): Promise<void> {
       sheetBotTokenMap.set(id, botTokenVal);
     }
 
-    // H (7): OpenRouter — замаскировано; если введён реальный ключ — сохраняем
-    const openRouterVal = (row[7] ?? '').trim();
+    // H (7): Chat уведомлений — отображается как реальное значение (read-only, заполняется авто)
+
+    // I (8): OpenRouter — замаскировано; если введён реальный ключ — сохраняем
+    const openRouterVal = (row[8] ?? '').trim();
     if (openRouterVal && !MASKED_DISPLAY_VALUES.has(openRouterVal)) {
       sheetOpenRouterMap.set(id, openRouterVal);
     }

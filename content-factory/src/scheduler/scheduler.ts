@@ -6,6 +6,7 @@
 import { readTasks } from '../sheets/tasks';
 import { readSettings } from '../sheets/settings';
 import { sendDailySummary } from '../telegram/notifier';
+import { captureNotifyChatIdFromStart } from '../telegram/captureNotifyChatId';
 import { sleep } from '../utils/sleep';
 import { logInfo, logToSheet, serializeError, getApiErrorResponsePreview } from '../utils/logger';
 import { getAdminSettings } from '../db/repositories/adminSettings';
@@ -284,6 +285,14 @@ export async function mainLoop(): Promise<void> {
             if (!refreshed?.settings) {
               logInfo('Client skipped: no settings after sync', { clientId: client.id });
               continue;
+            }
+            // Авто-захват notifyChatId: если бот задан, но уведомления ещё не настроены
+            if (refreshed.telegramBotToken && !refreshed.notifyChatId) {
+              const captured = await captureNotifyChatIdFromStart(
+                refreshed.id,
+                refreshed.telegramBotToken
+              ).catch(() => null);
+              if (captured) refreshed.notifyChatId = captured;
             }
             const settings = mergeSettings(admin, refreshed, refreshed.settings);
             pollIntervalMs = settings.pollInterval;
