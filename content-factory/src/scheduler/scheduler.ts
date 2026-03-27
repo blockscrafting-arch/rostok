@@ -126,12 +126,13 @@ interface QueueContext {
   clientId: string;
   openrouterApiKey: string;
   telegramBotToken?: string;
+  notifyChatId?: string;
 }
 
 async function runPipelinesForClient(
   settings: Settings,
   tasks: Awaited<ReturnType<typeof readTasks>>,
-  context: { sheetContext: { spreadsheetId: string }; telegramChannelId?: string } | undefined,
+  context: { sheetContext: { spreadsheetId: string }; telegramChannelId?: string; notifyChatId?: string } | undefined,
   queueContext: QueueContext,
   state: PublishState,
   dailyErrors: string[],
@@ -157,6 +158,7 @@ async function runPipelinesForClient(
     openrouterApiKey: queueContext.openrouterApiKey,
     telegramChannelId: context?.telegramChannelId,
     telegramBotToken: queueContext.telegramBotToken,
+    notifyChatId: queueContext.notifyChatId ?? context?.notifyChatId,
   };
 
   for (const task of tasks.filter((t) => t.status === 'Новое').reverse()) {
@@ -290,6 +292,7 @@ export async function mainLoop(): Promise<void> {
             const context = {
               sheetContext,
               telegramChannelId: refreshed.telegramChannelId ?? undefined,
+              notifyChatId: refreshed.notifyChatId ?? undefined,
             };
             const queueContext: QueueContext = {
               clientId: refreshed.id,
@@ -298,6 +301,7 @@ export async function mainLoop(): Promise<void> {
                   ? refreshed.openrouterApiKey
                   : config.openrouter.apiKey,
               telegramBotToken: refreshed.telegramBotToken ?? undefined,
+              notifyChatId: refreshed.notifyChatId ?? undefined,
             };
             const tasks = await readTasks({ spreadsheetId: client.spreadsheetId });
             const state = await getPublishState(client.id);
@@ -393,6 +397,7 @@ export async function mainLoop(): Promise<void> {
             name: string;
             spreadsheetId: string;
             notifyChatId?: string;
+            telegramBotToken?: string;
           }>;
           if (admin && clients.length > 0) {
             summaryClients = clients
@@ -402,6 +407,7 @@ export async function mainLoop(): Promise<void> {
                 name: c.name,
                 spreadsheetId: c.spreadsheetId!,
                 notifyChatId: c.notifyChatId ?? undefined,
+                telegramBotToken: c.telegramBotToken ?? undefined,
               }));
             if (
               legacyIdForSummary &&

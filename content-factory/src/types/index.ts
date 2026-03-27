@@ -118,6 +118,8 @@ export interface PipelineContext {
   telegramChannelId?: string;
   /** Индивидуальный токен бота клиента (при наличии). */
   telegramBotToken?: string;
+  /** Chat ID для уведомлений клиенту (Telegram). */
+  notifyChatId?: string;
   /** ID клиента (для S3: папка clients/{clientId}/images). Пустая строка — режим одной таблицы. */
   clientId?: string;
 }

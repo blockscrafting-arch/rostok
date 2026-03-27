@@ -10,6 +10,7 @@ export interface QueueContextPayload {
   openrouterApiKey: string;
   telegramChannelId?: string;
   telegramBotToken?: string;
+  notifyChatId?: string;
 }
 
 /** Базовый payload с номером строки листа «Задания». */

@@ -11,6 +11,7 @@ export function buildContextFromPayload(payload: QueueContextPayload): PipelineC
     sheetContext: { spreadsheetId: payload.spreadsheetId },
     telegramChannelId: payload.telegramChannelId,
     telegramBotToken: payload.telegramBotToken,
+    notifyChatId: payload.notifyChatId,
     clientId: payload.clientId,
   };
 }

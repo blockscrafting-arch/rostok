@@ -2,7 +2,7 @@
  * Пайплайн: одобренная статья → публикация в Telegram → статус «Опубликовано» + ссылка на пост.
  */
 import { publishToChannel } from '../telegram/publisher';
-import { notify } from '../telegram/notifier';
+import { notifyPublish } from '../telegram/notifier';
 import { writePublished, setStatusError } from '../sheets/writer';
 import { withRetry } from '../utils/retry';
 import { logInfo, logWarn, serializeError } from '../utils/logger';
@@ -65,7 +65,10 @@ export async function publishingPipeline(task: SheetTask, context?: PipelineCont
     logInfo('Published', { postUrl, headline: task.headline?.slice(0, 50) });
     const headlineSafe = escapeHtml((task.headline ?? '').slice(0, 60));
     try {
-      await notify(formatPublishNotifyHtml(postUrl, headlineSafe));
+      await notifyPublish(formatPublishNotifyHtml(postUrl, headlineSafe), {
+        botToken: context?.telegramBotToken,
+        notifyChatId: context?.notifyChatId,
+      });
     } catch (notifyErr) {
       logWarn('Published to channel but Telegram notify failed', serializeError(notifyErr));
     }

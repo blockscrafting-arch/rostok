@@ -119,12 +119,28 @@ export async function notify(message: string): Promise<void> {
 }
 
 /** Отправить сообщение в один чат (для персональной сводки клиенту). */
-async function sendToChat(chatId: string, message: string): Promise<void> {
+async function sendToChat(chatId: string, message: string, botToken?: string): Promise<void> {
+  const bot = botToken ? new Telegraf(botToken) : appBot;
   try {
-    await appBot.telegram.sendMessage(chatId, message, { parse_mode: 'HTML' });
+    await bot.telegram.sendMessage(chatId, message, { parse_mode: 'HTML' });
   } catch (e) {
     console.error('Send to client failed:', { chatId, errorMessage: serializeError(e).message });
   }
+}
+
+/**
+ * Уведомить о публикации: через бота клиента (если задан botToken + notifyChatId),
+ * иначе через глобальный appBot на TELEGRAM_NOTIFY_CHAT_ID.
+ */
+export async function notifyPublish(
+  message: string,
+  opts?: { botToken?: string; notifyChatId?: string }
+): Promise<void> {
+  if (opts?.botToken && opts?.notifyChatId) {
+    await sendToChat(opts.notifyChatId, message, opts.botToken);
+    return;
+  }
+  await notify(message);
 }
 
 function dateRangeDay(): { from: Date; to: Date } {
@@ -159,6 +175,7 @@ export interface DailySummaryClient {
   name: string;
   spreadsheetId: string;
   notifyChatId?: string | null;
+  telegramBotToken?: string | null;
 }
 
 /**
@@ -235,7 +252,7 @@ export async function sendDailySummary(
       const clientText =
         `<b>Сводка за сегодня</b>\n` +
         `Статей сгенерировано: за день — ${dayArticles}, за неделю — ${weekArticles}, за месяц — ${monthArticles}.`;
-      await sendToChat(client.notifyChatId.trim(), clientText);
+      await sendToChat(client.notifyChatId.trim(), clientText, client.telegramBotToken ?? undefined);
     }
   } else {
     const clientId = 'default';
