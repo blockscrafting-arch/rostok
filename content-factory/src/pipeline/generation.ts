@@ -1,6 +1,6 @@
 /**
- * Пайплайн генерации текста: заголовок → граундинг → черновик → очеловечивание → UTM → таблица (статус «Готово к проверке»).
- * Картинка — только после того, как менеджер поставит «Текст готов, ждём картинку» (см. scheduler + imageGeneration.ts).
+ * Пайплайн генерации текста: заголовок → граундинг → черновик → очеловечивание → UTM → таблица.
+ * Статус после текста: «Текст готов, ждём картинку» → планировщик автоматически ставит картинку в очередь.
  */
 import { buildUtmUrl } from '../utils/utm';
 import { groundArticleFacts } from '../ai/grounding';
@@ -12,7 +12,7 @@ import { writeTextResult, updateStatus, setStatusError } from '../sheets/writer'
 import { createCostRecord } from '../db/repositories/costRecords';
 import { withRetry } from '../utils/retry';
 import { logInfo, logWarn, serializeError } from '../utils/logger';
-import { truncateAtSentence, cleanArticleFirstLine, insertCatalogLinks } from '../utils/text';
+import { truncateAtSentence, cleanArticleFirstLine } from '../utils/text';
 import type { SheetTask, Settings, PipelineContext } from '../types';
 
 export interface GenerationOptions {
@@ -61,6 +61,8 @@ export async function generationPipeline(
       'Grounding'
     );
 
+    const factsClean = facts.replace(/https?:\/\/[^\s)\]]+/g, '').replace(/\n{3,}/g, '\n\n').trim();
+
     const { text: draftText, usage: usageDraft } = await withRetry(
       () =>
         generateDraft(
@@ -69,7 +71,7 @@ export async function generationPipeline(
           keywords,
           settings.prompt2,
           settings,
-          facts,
+          factsClean,
           comment,
           settings.textModel
         ),
@@ -91,11 +93,10 @@ export async function generationPipeline(
 
     const cleanedText = cleanArticleFirstLine(finalText);
     const utmUrl = buildUtmUrl(headline, settings, task.keyword ?? '');
-    const textWithLinks = insertCatalogLinks(cleanedText, utmUrl);
-    if (textWithLinks.length > 4000) {
-      logInfo('Text exceeded 4000 chars, truncating', { len: textWithLinks.length });
+    if (cleanedText.length > 4000) {
+      logInfo('Text exceeded 4000 chars, truncating', { len: cleanedText.length });
     }
-    const previewText = truncateAtSentence(textWithLinks, 4000);
+    const previewText = truncateAtSentence(cleanedText, 4000);
     const textUsages = [usageGround, usageDraft, usageHumanize];
     const { costTextUsd } = splitCostUsd(textUsages, 0);
 
@@ -106,7 +107,7 @@ export async function generationPipeline(
         sources: citations.join(', '),
         utmUrl,
       },
-      { statusAfter: 'Готово к проверке' },
+      { statusAfter: 'Текст готов, ждём картинку' },
       sheetCtx
     );
 
