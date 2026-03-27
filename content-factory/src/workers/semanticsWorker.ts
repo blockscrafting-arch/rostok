@@ -22,7 +22,14 @@ const worker = new Worker<SemanticsJobPayload>(
 worker.on('failed', (job, err) => {
   const maxAttempts = job?.opts?.attempts ?? 1;
   if (job && job.attemptsMade < maxAttempts) {
-    logInfo('Semantics worker attempt failed, will retry', { jobId: job.id, attemptsMade: job.attemptsMade, maxAttempts });
+    const msg = serializeError(err).message;
+    logInfo('Semantics worker attempt failed, will retry', {
+      jobId: job.id,
+      attemptsMade: job.attemptsMade,
+      maxAttempts,
+      errorMessage: msg,
+      responsePreview: getApiErrorResponsePreview(err),
+    });
     return;
   }
   const payload = job?.data as SemanticsJobPayload | undefined;

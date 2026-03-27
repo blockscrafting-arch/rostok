@@ -75,7 +75,15 @@ export async function semanticsPipeline(
     await writeHeadlines(task, first?.headline ? [first.headline] : [], sheetCtx);
     await updateStatus(task, 'На согласовании', sheetCtx);
     if (filteredItems.length > 1) {
-      await insertTaskRows(task, filteredItems.slice(1), sheetCtx);
+      try {
+        await insertTaskRows(task, filteredItems.slice(1), sheetCtx);
+      } catch (insertErr) {
+        logWarn('insertTaskRows failed (non-fatal): first headline saved, extra rows skipped', {
+          keyword: task.keyword,
+          extraRows: filteredItems.length - 1,
+          errorMessage: insertErr instanceof Error ? insertErr.message : String(insertErr),
+        });
+      }
     }
     logInfo('Semantics done', { keyword: task.keyword, headlinesCount: filteredItems.length, headlinesCostUsd });
   } catch (error) {
