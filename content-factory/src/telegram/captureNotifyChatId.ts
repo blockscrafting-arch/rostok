@@ -14,6 +14,9 @@ export async function captureNotifyChatIdFromStart(
 ): Promise<string | null> {
   const bot = new Telegraf(botToken);
   try {
+    const webhookInfo = await bot.telegram.getWebhookInfo();
+    if (webhookInfo.url) return null; // бот работает через webhook — getUpdates недоступен
+
     const updates = await bot.telegram.getUpdates(30, 100, undefined, ['message']);
     if (updates.length === 0) return null;
 
