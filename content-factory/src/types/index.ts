@@ -122,6 +122,8 @@ export interface PipelineContext {
   notifyChatId?: string;
   /** ID клиента (для S3: папка clients/{clientId}/images). Пустая строка — режим одной таблицы. */
   clientId?: string;
+  /** Имя клиента для логов и уведомлений об ошибках. */
+  clientName?: string;
 }
 
 /** Использование токенов из ответа OpenRouter. */

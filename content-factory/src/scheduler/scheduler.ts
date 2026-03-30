@@ -125,6 +125,7 @@ const PUBLISH_SKIPPED_LOG_THROTTLE_MS = 5 * 60 * 1000; // 5 минут
 /** Контекст для постановки задач в очереди (clientId и API key для воркеров). */
 interface QueueContext {
   clientId: string;
+  clientName?: string;
   openrouterApiKey: string;
   telegramBotToken?: string;
   notifyChatId?: string;
@@ -155,6 +156,7 @@ async function runPipelinesForClient(
   const spreadsheetId = context?.sheetContext?.spreadsheetId ?? '';
   const ctxPayload: QueueContextPayload = {
     clientId: queueContext.clientId,
+    clientName: queueContext.clientName,
     spreadsheetId,
     openrouterApiKey: queueContext.openrouterApiKey,
     telegramChannelId: context?.telegramChannelId,
@@ -306,6 +308,7 @@ export async function mainLoop(): Promise<void> {
             };
             const queueContext: QueueContext = {
               clientId: refreshed.id,
+              clientName: refreshed.name,
               openrouterApiKey:
                 refreshed.openrouterApiKey && refreshed.openrouterApiKey !== 'PENDING'
                   ? refreshed.openrouterApiKey
@@ -347,6 +350,7 @@ export async function mainLoop(): Promise<void> {
               const context = { sheetContext: { spreadsheetId: legacySpreadsheetId } };
               const queueContext: QueueContext = {
                 clientId: 'default',
+                clientName: 'Основной',
                 openrouterApiKey: config.openrouter.apiKey,
               };
               const state = await getPublishState('default');
@@ -380,6 +384,7 @@ export async function mainLoop(): Promise<void> {
         const context = { sheetContext: { spreadsheetId: config.google.spreadsheetId } };
         const queueContext: QueueContext = {
           clientId: 'default',
+          clientName: 'Основной',
           openrouterApiKey: config.openrouter.apiKey,
         };
         const state = await getPublishState('default');

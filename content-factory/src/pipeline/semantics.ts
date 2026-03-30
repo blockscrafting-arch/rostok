@@ -29,6 +29,7 @@ export async function semanticsPipeline(
 
   const aiClient = context?.aiClient ?? openrouter;
   const sheetCtx = context?.sheetContext;
+  const clientLabel = context?.clientName ?? context?.clientId ?? 'Основной';
 
   const keywordSafe = task.keyword.slice(0, MAX_KEYWORD_LENGTH);
   try {
@@ -37,7 +38,10 @@ export async function semanticsPipeline(
       try {
         return await withRetry(
           () => fetchKeywords(keywordSafe, task.frequencyLimit),
-          'Wordstat'
+          'Wordstat',
+          undefined,
+          undefined,
+          clientLabel
         );
       } catch {
         logWarn('Wordstat failed, continuing without keywords', { keyword: keywordSafe });
@@ -55,7 +59,10 @@ export async function semanticsPipeline(
           settings.headlinesCount ?? 30,
           settings.textModel
         ),
-      'Headlines'
+      'Headlines',
+      undefined,
+      undefined,
+      clientLabel
     );
     const filteredItems = kwStrings.length > 0
       ? (() => {

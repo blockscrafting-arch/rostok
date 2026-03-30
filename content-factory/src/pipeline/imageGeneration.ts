@@ -21,6 +21,7 @@ export async function imageGenerationPipeline(
 ): Promise<void> {
   const aiClient = context?.aiClient ?? openrouter;
   const sheetCtx = context?.sheetContext;
+  const clientLabel = context?.clientName ?? context?.clientId ?? 'Основной';
 
   if (task.status !== 'Текст готов, ждём картинку') return;
 
@@ -59,7 +60,10 @@ export async function imageGenerationPipeline(
   try {
     const imgResult = await withRetry(
       () => generatePlantImage(aiClient, headline, referencePhotoUrl || undefined, imageOptions),
-      'Image generation'
+      'Image generation',
+      undefined,
+      undefined,
+      clientLabel
     );
     const costImageUsd = imgResult.costUsd ?? 0;
     let imageUrl = '';
@@ -117,7 +121,7 @@ export async function imageGenerationPipeline(
         const clientPrefix = context?.clientId !== undefined && context.clientId !== '' ? `clients/${context.clientId}/` : 'clients/single/';
         const key = `${clientPrefix}images/article-${task.rowIndex}-${Date.now()}.png`;
         logInfo('Image pipeline: uploading to S3', { rowIndex: task.rowIndex, key, bufBytes: buf.length });
-        imageUrl = await withRetry(() => uploadImage(buf, key), 'S3');
+        imageUrl = await withRetry(() => uploadImage(buf, key), 'S3', undefined, undefined, clientLabel);
         logInfo('Image pipeline: S3 result', { rowIndex: task.rowIndex, imageUrlLength: imageUrl?.length ?? 0 });
       } else {
         logWarn('Image pipeline: zero buffer after decode/fetch', { rowIndex: task.rowIndex, rawImageType });

@@ -6,6 +6,7 @@ import type { SheetTask, Settings } from '../types';
 
 export interface QueueContextPayload {
   clientId: string;
+  clientName?: string;
   spreadsheetId: string;
   openrouterApiKey: string;
   telegramChannelId?: string;

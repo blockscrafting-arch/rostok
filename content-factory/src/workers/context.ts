@@ -13,5 +13,6 @@ export function buildContextFromPayload(payload: QueueContextPayload): PipelineC
     telegramBotToken: payload.telegramBotToken,
     notifyChatId: payload.notifyChatId,
     clientId: payload.clientId,
+    clientName: payload.clientName,
   };
 }

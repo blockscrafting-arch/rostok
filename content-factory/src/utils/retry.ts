@@ -16,7 +16,8 @@ export async function withRetry<T>(
   fn: () => Promise<T>,
   label: string,
   maxAttempts = config.schedule.retryAttempts,
-  baseDelayMs = config.schedule.retryBaseDelayMs
+  baseDelayMs = config.schedule.retryBaseDelayMs,
+  notifyContext?: string
 ): Promise<T> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -28,7 +29,8 @@ export async function withRetry<T>(
       const { message } = serializeError(error);
       if (attempt === maxAttempts) {
         logWarn('Retry: all attempts failed', { label, maxAttempts, lastMessage: message.slice(0, 200) });
-        const msg = `❌ ${label}: все ${maxAttempts} попытки провалились.\n${message}`;
+        const contextLine = notifyContext ? `\n👤 ${notifyContext}` : '';
+        const msg = `❌ ${label}: все ${maxAttempts} попытки провалились.${contextLine}\n${message}`;
         if (notifyFn) await notifyFn(msg).catch(() => {});
         logToSheet(label, 'error', `${message}`.slice(0, 500)).catch(() => {});
         throw error;

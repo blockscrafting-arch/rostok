@@ -41,6 +41,9 @@ export async function publishingPipeline(task: SheetTask, context?: PipelineCont
   const telegramChannelId = context?.telegramChannelId;
   const telegramBotToken = context?.telegramBotToken;
   const allowConfigChannelFallback = allowLegacyTelegramChannelFromEnv(context?.clientId);
+  const clientLabel = context?.clientName
+    ? `${context.clientName} (${telegramChannelId ?? 'канал не задан'})`
+    : (telegramChannelId ?? context?.clientId ?? 'Основной');
 
   if (task.status !== 'Одобрено на публикацию') return;
 
@@ -59,7 +62,10 @@ export async function publishingPipeline(task: SheetTask, context?: PipelineCont
         publishToChannel(toPublish, telegramChannelId, telegramBotToken, {
           allowConfigChannelFallback,
         }),
-      'Telegram publish'
+      'Telegram publish',
+      undefined,
+      undefined,
+      clientLabel
     );
     await writePublished(task, postUrl, sheetCtx);
     logInfo('Published', { postUrl, headline: task.headline?.slice(0, 50) });

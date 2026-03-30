@@ -32,6 +32,7 @@ export async function generationPipeline(
   const { isRevision = false, editorComment } = options;
   const aiClient = context?.aiClient ?? openrouter;
   const sheetCtx = context?.sheetContext;
+  const clientLabel = context?.clientName ?? context?.clientId ?? 'Основной';
 
   const headline = (task.headline?.trim() ?? '').slice(0, MAX_HEADLINE_LENGTH);
   if (
@@ -58,7 +59,10 @@ export async function generationPipeline(
         groundArticleFacts(aiClient, headline, keywords, {
           modelOverride: settings.groundingModel,
         }),
-      'Grounding'
+      'Grounding',
+      undefined,
+      undefined,
+      clientLabel
     );
 
     const factsClean = facts.replace(/https?:\/\/[^\s)\]]+/g, '').replace(/\n{3,}/g, '\n\n').trim();
@@ -75,7 +79,10 @@ export async function generationPipeline(
           comment,
           settings.textModel
         ),
-      'Draft'
+      'Draft',
+      undefined,
+      undefined,
+      clientLabel
     );
 
     const { text: finalText, usage: usageHumanize } = await withRetry(
@@ -88,7 +95,10 @@ export async function generationPipeline(
           comment,
           settings.textModel
         ),
-      'Humanize'
+      'Humanize',
+      undefined,
+      undefined,
+      clientLabel
     );
 
     const cleanedText = cleanArticleFirstLine(finalText);
