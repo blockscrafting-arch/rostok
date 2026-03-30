@@ -4,8 +4,16 @@
  * Запускается каждый цикл планировщика, чтобы подхватывать новых подписчиков.
  */
 import { Telegraf } from 'telegraf';
+import type { Update } from 'telegraf/types';
 import { prisma } from '../db/client';
 import { logInfo, logWarn, serializeError } from '../utils/logger';
+
+function isStartMessageUpdate(u: Update): u is Update.MessageUpdate {
+  if (!('message' in u) || u.message == null) return false;
+  const msg = u.message;
+  if (!('text' in msg) || typeof msg.text !== 'string') return false;
+  return msg.text === '/start' || msg.text.startsWith('/start ');
+}
 
 export async function captureNotifyChatIdFromStart(
   clientId: string,
@@ -17,7 +25,7 @@ export async function captureNotifyChatIdFromStart(
     const webhookInfo = await bot.telegram.getWebhookInfo();
     if (webhookInfo.url) return null; // бот работает через webhook — getUpdates недоступен
 
-    const updates = await bot.telegram.getUpdates(30, 100, undefined, ['message']);
+    const updates = await bot.telegram.getUpdates(30, 100, 0, ['message']);
     if (updates.length === 0) return null;
 
     // Подтверждаем обработку всех апдейтов (сдвигаем offset) — независимо от /start
@@ -25,9 +33,7 @@ export async function captureNotifyChatIdFromStart(
     await bot.telegram.getUpdates(0, 1, maxOffset, []).catch(() => {});
 
     // Собираем все chat_id из /start сообщений
-    const newIds = updates
-      .filter((u) => u.message?.text === '/start' || u.message?.text?.startsWith('/start '))
-      .map((u) => String(u.message!.chat.id));
+    const newIds = updates.filter(isStartMessageUpdate).map((u) => String(u.message.chat.id));
 
     if (newIds.length === 0) return null;
 
