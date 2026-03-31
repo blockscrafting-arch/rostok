@@ -7,6 +7,7 @@ import { writePublished, setStatusError } from '../sheets/writer';
 import { withRetry } from '../utils/retry';
 import { logInfo, logWarn, serializeError } from '../utils/logger';
 import { markdownToTelegramHtml } from '../utils/markdownToHtml';
+import { insertCatalogLinks } from '../utils/text';
 import type { SheetTask, PipelineContext } from '../types';
 
 const MAX_TEXT_LENGTH = 4096;
@@ -53,7 +54,10 @@ export async function publishingPipeline(task: SheetTask, context?: PipelineCont
     throw new Error('Нет текста для публикации');
   }
 
-  const raw = text.length > MAX_TEXT_LENGTH ? text.slice(0, MAX_TEXT_LENGTH) : text;
+  const safeUtmUrl = (task.utmUrl ?? '').startsWith('http') ? task.utmUrl! : '';
+  const withLinks = insertCatalogLinks(text, safeUtmUrl);
+  const cleaned = withLinks.replace(/\[ССЫЛКА НА КАТАЛОГ\]/gi, '').replace(/\n{3,}/g, '\n\n').trim();
+  const raw = cleaned.length > MAX_TEXT_LENGTH ? cleaned.slice(0, MAX_TEXT_LENGTH) : cleaned;
   const toPublish = markdownToTelegramHtml(raw);
 
   try {
