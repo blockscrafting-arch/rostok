@@ -167,7 +167,9 @@ export async function generateHeadlines(
   textModelOverride?: string
 ): Promise<HeadlinesResult> {
   const model = textModelOverride?.trim() || config.openrouter.textModel;
-  const kwList = keywordList.length ? keywordList.join(', ') : keyword;
+  const kwList = keywordList.length
+    ? keywordList.join(', ')
+    : `нет НЧ-данных из Wordstat — придумай для каждого заголовка 5–10 поисковых запросов по теме "${keyword}"`;
   const countStr = String(count);
   const userPrompt = prompt1
     ? buildPromptDynamic(prompt1, { keyword, keywords: kwList, count: countStr })
