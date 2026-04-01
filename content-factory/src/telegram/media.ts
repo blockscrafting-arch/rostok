@@ -250,5 +250,9 @@ export async function transcribeAudio(base64Audio: string): Promise<string> {
   }
   const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
   const text = data.choices?.[0]?.message?.content?.trim() ?? '';
+  logInfo('Transcription result preview', {
+    chars: text.length,
+    preview: text.slice(0, 300),
+  });
   return text;
 }

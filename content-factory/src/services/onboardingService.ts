@@ -107,6 +107,15 @@ export async function processWebOnboarding(input: WebOnboardingInput): Promise<W
       skipped++;
       continue;
     }
+    if (text) {
+      const source = item.audio && !item.answer?.trim() ? 'audio' : 'text';
+      logInfo('Step answer collected', {
+        step: item.step,
+        source,
+        chars: text.length,
+        preview: text.slice(0, 200),
+      });
+    }
     const block = item.question?.trim()
       ? `Вопрос: ${item.question}\nОтвет: ${text}`
       : text;
@@ -129,13 +138,22 @@ export async function processWebOnboarding(input: WebOnboardingInput): Promise<W
     );
   }
 
+  logInfo('Sending to extractor', {
+    blocks: answerStrings.length,
+    totalChars: answerStrings.join('').length,
+    blocks_preview: answerStrings.map((s, i) => ({ i, preview: s.slice(0, 150) })),
+  });
+
   const extracted = await extractClientSettings(answerStrings);
 
   logInfo('AI extraction done', {
     clientName,
-    role: extracted.role.slice(0, 60),
+    role: extracted.role.slice(0, 80),
+    tonality: extracted.tonality.slice(0, 80),
+    targetAudience: extracted.targetAudience.slice(0, 80),
+    productDetails: extracted.productDetails.slice(0, 80),
+    contentTypes: extracted.contentTypes,
     operationMode: extracted.operationMode,
-    contentTypes: extracted.contentTypes.length,
     trustedSites: extracted.trustedSites.length,
     elapsedMs: Date.now() - t0,
   });
