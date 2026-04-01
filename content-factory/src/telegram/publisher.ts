@@ -5,6 +5,7 @@ import { Telegraf } from 'telegraf';
 import { config } from '../config';
 import { appBot } from './appBot';
 import { buildTelegramPostUrl, normalizeTelegramChannelIdForSend } from '../utils/telegramChannel';
+import { truncateTelegramHtml } from '../utils/truncateTelegramHtml';
 
 export type PublishToChannelOptions = {
   /**
