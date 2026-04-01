@@ -2,9 +2,65 @@
  * Логирование: консоль + при необходимости запись в лист «Лог».
  * Ошибки сериализуются с message и stack, чтобы в логах не было пустого {}.
  */
+import * as fs from 'fs';
+import * as path from 'path';
 import { google } from 'googleapis';
 import { config } from '../config';
 import { formatIsoLikeMsk, formatLogTimestampMsk } from './dateMsk';
+
+// --- Файловый лог для онбординга ---
+
+const ONBOARDING_LOG_DIR = process.env.ONBOARDING_LOG_DIR ?? path.join(process.cwd(), 'logs');
+const ONBOARDING_LOG_FILE = path.join(ONBOARDING_LOG_DIR, 'onboarding.log');
+const ONBOARDING_LOG_MAX_BYTES = 10 * 1024 * 1024; // 10 МБ
+const ONBOARDING_LOG_MAX_ARCHIVES = 5;
+
+function ensureLogDir(): void {
+  try {
+    if (!fs.existsSync(ONBOARDING_LOG_DIR)) {
+      fs.mkdirSync(ONBOARDING_LOG_DIR, { recursive: true });
+    }
+  } catch {
+    // не критично — продолжим без файлового лога
+  }
+}
+
+function rotateOnboardingLog(): void {
+  try {
+    if (!fs.existsSync(ONBOARDING_LOG_FILE)) return;
+    const stat = fs.statSync(ONBOARDING_LOG_FILE);
+    if (stat.size < ONBOARDING_LOG_MAX_BYTES) return;
+    // сдвигаем архивы: .5 удаляем, .4→.5, ..., .1→.2, текущий→.1
+    for (let i = ONBOARDING_LOG_MAX_ARCHIVES; i >= 1; i--) {
+      const src = i === 1 ? ONBOARDING_LOG_FILE : `${ONBOARDING_LOG_FILE}.${i - 1}`;
+      const dst = `${ONBOARDING_LOG_FILE}.${i}`;
+      if (fs.existsSync(src)) {
+        if (i === ONBOARDING_LOG_MAX_ARCHIVES && fs.existsSync(dst)) {
+          fs.unlinkSync(dst);
+        }
+        fs.renameSync(src, dst);
+      }
+    }
+  } catch {
+    // ротация не критична
+  }
+}
+
+/**
+ * Записать событие онбординга в персистентный файл /app/logs/onboarding.log.
+ * Дублирует вывод в консоль. Не бросает исключений.
+ */
+export function logOnboarding(message: string, meta?: unknown): void {
+  const line = formatMsg('INFO', message, meta);
+  console.log(line);
+  try {
+    ensureLogDir();
+    rotateOnboardingLog();
+    fs.appendFileSync(ONBOARDING_LOG_FILE, line + '\n', 'utf8');
+  } catch {
+    // запись в файл не должна ломать онбординг
+  }
+}
 
 const LOG_SHEET_NAME = 'Лог';
 const MAX_STACK_LENGTH = 800;

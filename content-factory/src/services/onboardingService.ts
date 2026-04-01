@@ -7,7 +7,7 @@ import { downloadAndConvertToMp3Base64, transcribeAudio } from '../telegram/medi
 import { extractClientSettings } from '../ai/extractor';
 import { provisionClient } from './clientProvisioning';
 import { notifyNewBrief } from '../telegram/notifier';
-import { logInfo, logWarn, serializeError } from '../utils/logger';
+import { logOnboarding, serializeError } from '../utils/logger';
 import { processAndPersistOnboardingLogo } from '../utils/logoProcessor';
 
 export interface WebOnboardingInput {
@@ -64,7 +64,7 @@ export async function processWebOnboarding(input: WebOnboardingInput): Promise<W
   const audioCount = answers.filter((a) => a.audio && !a.answer?.trim()).length;
   const textCount = answers.filter((a) => a.answer?.trim()).length;
 
-  logInfo('Onboarding started', { clientName, email, totalAnswers, textCount, audioCount });
+  logOnboarding('Onboarding started', { clientName, email, totalAnswers, textCount, audioCount });
 
   const answerStrings: string[] = [];
   let audioOk = 0;
@@ -74,7 +74,7 @@ export async function processWebOnboarding(input: WebOnboardingInput): Promise<W
   for (const item of answers) {
     let text = item.answer?.trim() ?? '';
     if (text && item.audio) {
-      logInfo('Audio ignored: text answer takes priority', { step: item.step });
+      logOnboarding('Audio ignored: text answer takes priority', { step: item.step });
     }
     if (!text && item.audio) {
       if (!isValidAudioUrl(item.audio)) {
@@ -82,20 +82,20 @@ export async function processWebOnboarding(input: WebOnboardingInput): Promise<W
           `Недопустимый URL аудио в шаге ${item.step}: требуется полный https://`
         );
       }
-      logInfo('Audio download started', { step: item.step, url: item.audio.slice(0, 80) });
+      logOnboarding('Audio download started', { step: item.step, url: item.audio.slice(0, 80) });
       try {
         const base64 = await downloadAndConvertToMp3Base64(item.audio);
         text = (await transcribeAudio(base64)) || '';
         if (text) {
           audioOk++;
-          logInfo('Audio transcribed', { step: item.step, chars: text.length });
+          logOnboarding('Audio transcribed', { step: item.step, chars: text.length });
         } else {
           audioFail++;
-          logWarn('Audio transcribed but empty result', { step: item.step });
+          logOnboarding('Audio transcribed but empty result', { step: item.step });
         }
       } catch (e) {
         audioFail++;
-        logWarn('Audio transcription failed', {
+        logOnboarding('Audio transcription failed', {
           step: item.step,
           url: item.audio.slice(0, 80),
           error: serializeError(e).message,
@@ -109,7 +109,7 @@ export async function processWebOnboarding(input: WebOnboardingInput): Promise<W
     }
     if (text) {
       const source = item.audio && !item.answer?.trim() ? 'audio' : 'text';
-      logInfo('Step answer collected', {
+      logOnboarding('Step answer collected', {
         step: item.step,
         source,
         chars: text.length,
@@ -122,7 +122,7 @@ export async function processWebOnboarding(input: WebOnboardingInput): Promise<W
     if (block) answerStrings.push(block);
   }
 
-  logInfo('Answers processed', {
+  logOnboarding('Answers processed', {
     clientName,
     total: totalAnswers,
     collected: answerStrings.length,
@@ -138,7 +138,7 @@ export async function processWebOnboarding(input: WebOnboardingInput): Promise<W
     );
   }
 
-  logInfo('Sending to extractor', {
+  logOnboarding('Sending to extractor', {
     blocks: answerStrings.length,
     totalChars: answerStrings.join('').length,
     blocks_preview: answerStrings.map((s, i) => ({ i, preview: s.slice(0, 150) })),
@@ -146,7 +146,7 @@ export async function processWebOnboarding(input: WebOnboardingInput): Promise<W
 
   const extracted = await extractClientSettings(answerStrings);
 
-  logInfo('AI extraction done', {
+  logOnboarding('AI extraction done', {
     clientName,
     role: extracted.role.slice(0, 80),
     tonality: extracted.tonality.slice(0, 80),
@@ -191,7 +191,7 @@ export async function processWebOnboarding(input: WebOnboardingInput): Promise<W
     },
   });
 
-  logInfo('Client provisioned', {
+  logOnboarding('Client provisioned', {
     clientId: result.clientId,
     clientName,
     spreadsheetId: result.spreadsheetId ?? 'none',
@@ -209,7 +209,7 @@ export async function processWebOnboarding(input: WebOnboardingInput): Promise<W
     'web'
   );
 
-  logInfo('Onboarding completed', {
+  logOnboarding('Onboarding completed', {
     clientId: result.clientId,
     clientName,
     totalAnswers,

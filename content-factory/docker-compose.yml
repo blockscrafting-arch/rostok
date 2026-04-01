@@ -43,6 +43,7 @@ services:
       REDIS_URL: redis://redis:6379
     volumes:
       - ./secrets:/app/secrets:ro
+      - ./logs:/app/logs
     ports:
       - "3100:3100"
     restart: unless-stopped

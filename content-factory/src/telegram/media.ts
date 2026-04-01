@@ -11,7 +11,7 @@ import { pipeline } from 'stream/promises';
 import pLimit from 'p-limit';
 import { config } from '../config';
 import { assertHostnameResolvesToPublicIp } from '../utils/ssrfResolve';
-import { logInfo } from '../utils/logger';
+import { logInfo, logOnboarding } from '../utils/logger';
 
 /** Семафор для ffmpeg: не более 2 одновременных конвертаций (DoS-защита). */
 const ffmpegLimit = pLimit(2);
@@ -250,7 +250,7 @@ export async function transcribeAudio(base64Audio: string): Promise<string> {
   }
   const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
   const text = data.choices?.[0]?.message?.content?.trim() ?? '';
-  logInfo('Transcription result preview', {
+  logOnboarding('Transcription result preview', {
     chars: text.length,
     preview: text.slice(0, 300),
   });
