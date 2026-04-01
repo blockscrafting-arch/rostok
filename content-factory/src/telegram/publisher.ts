@@ -50,7 +50,7 @@ export async function publishToChannel(
   const allowFallback = options?.allowConfigChannelFallback !== false;
   const rawResolved = resolveChannelIdForPublish(channelIdOverride, allowFallback);
   const channelId = normalizeTelegramChannelIdForSend(rawResolved) || rawResolved;
-  const toSend = html;
+  const toSend = truncateTelegramHtml(html);
 
   const bot = botTokenOverride ? new Telegraf(botTokenOverride) : appBot;
 
