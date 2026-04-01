@@ -6,8 +6,6 @@ import { config } from '../config';
 import { appBot } from './appBot';
 import { buildTelegramPostUrl, normalizeTelegramChannelIdForSend } from '../utils/telegramChannel';
 
-const MAX_MESSAGE_LENGTH = 4096;
-
 export type PublishToChannelOptions = {
   /**
    * Если false и channelIdOverride пустой — ошибка, без fallback в TELEGRAM_CHANNEL_ID.
@@ -52,7 +50,7 @@ export async function publishToChannel(
   const allowFallback = options?.allowConfigChannelFallback !== false;
   const rawResolved = resolveChannelIdForPublish(channelIdOverride, allowFallback);
   const channelId = normalizeTelegramChannelIdForSend(rawResolved) || rawResolved;
-  const toSend = html.slice(0, MAX_MESSAGE_LENGTH);
+  const toSend = html;
 
   const bot = botTokenOverride ? new Telegraf(botTokenOverride) : appBot;
 
